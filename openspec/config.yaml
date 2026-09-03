@@ -1,0 +1,130 @@
+schema: spec-driven
+githubCopilot:
+  cloudAgent: false
+
+context: |
+  Project: PadelInTwo
+
+  Domain:
+  PadelInTwo is a multi-club booking platform that allows players to discover clubs,
+  view court availability, book courts and organize matches.
+
+  The platform connects players and sports clubs through a centralized experience
+  while allowing each club to independently manage its own business operations.
+
+  Primary Actors:
+  - Player
+  - Club Administrator
+  - Platform Administrator
+
+  Architecture:
+  - Backend Repository: padel-in-two-bk
+  - Frontend Repository: padel-in-two-fe
+
+  Backend Stack:
+  - NestJS
+  - TypeScript
+  - REST API
+  - Swagger/OpenAPI
+  - Prisma ORM
+  - JWT Authentication
+  - Class Validator
+
+  Frontend Stack:
+  - React
+  - TypeScript
+  - Vite
+  - React Router
+
+  Database:
+  - PostgreSQL
+  - Neon Database
+
+  Payments:
+  - Stripe Connect
+  - Each club owns its own Stripe account
+  - Payments belong to the club
+  - The platform acts as a marketplace facilitator
+  - Future support for commissions and payouts must be possible
+
+  Multi-Tenant Model:
+  - Multiple independent clubs coexist in the platform
+  - Each club manages its own courts
+  - Each club manages its own calendar
+  - Each club manages its own availability
+  - Each club manages its own bookings
+  - Each club manages its own pricing rules
+  - Each club manages its own Stripe account
+
+  User Experience:
+  - Players register only once
+  - Players can access multiple clubs
+  - Players can book courts across different clubs
+  - Players can participate in matches managed by any club
+
+  Core Domains:
+  - Authentication
+  - Users
+  - Clubs
+  - Courts
+  - Calendars
+  - Bookings
+  - Payments
+  - Matches
+  - Notifications
+
+  Development Principles:
+  - Specification Driven Development
+  - API First Design
+  - Domain Driven Design
+  - Modular Monolith Architecture
+  - Backend and Frontend must follow OpenSpec specifications
+  - Business requirements are defined before implementation
+
+  Language:
+  - Documentation in Italian
+  - Code in English
+  - API contracts in English
+
+rules:
+  proposal:
+    - Describe the business value before the technical solution
+    - Always include Goals
+    - Always include Non-goals
+    - Focus on a single business capability
+    - Explicitly describe impacts on Players and Clubs
+
+  design:
+    - Include backend impact
+    - Include frontend impact
+    - Include database impact
+    - Include Stripe impact when payments are involved
+    - Include multi-tenant considerations
+    - Describe API contracts
+    - Document architectural decisions and tradeoffs
+
+  tasks:
+    - Separate backend and frontend tasks
+    - Include database migration tasks when required
+    - Include API documentation tasks
+    - Include testing tasks
+    - Keep tasks independently verifiable
+    - Prefer tasks smaller than one development day
+
+operations:
+  apply:
+    guidance:
+      - Follow tasks sequentially
+      - Update completed tasks during implementation
+      - Respect architecture specifications
+      - Preserve tenant isolation
+      - Preserve payment ownership boundaries
+      - Keep API documentation updated
+
+  archive:
+    guidance:
+      - Verify implementation matches specifications
+      - Verify multi-tenant requirements
+      - Verify payment requirements
+      - Summarize functional changes
+      - Archive only validated changes

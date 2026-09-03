@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ClubStatus {
+  ACTIVE   @map("active")
+  INACTIVE @map("inactive")
+
+  @@map("club_status")
+}
+
+enum CourtStatus {
+  AVAILABLE  @map("available")
+  RESERVED   @map("reserved")
+  MAINTENANCE @map("maintenance")
+  INACTIVE   @map("inactive")
+
+  @@map("court_status")
+}
+
+enum BookingStatus {
+  FREE      @map("free")
+  RESERVED  @map("reserved")
+  SEARCHING @map("searching")
+  BLOCKED   @map("blocked")
+
+  @@map("booking_status")
+}
+
+model Club {
+  id          String         @id @default(uuid()) @db.Uuid
+  name        String         @db.VarChar(160)
+  email       String         @unique @db.VarChar(320)
+  status      ClubStatus     @default(ACTIVE)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  courts      Court[]
+  bookings    Booking[]
+
+  @@map("clubs")
+}
+
+model Court {
+  id        String      @id @default(uuid()) @db.Uuid
+  clubId    String      @db.Uuid
+  name      String      @db.VarChar(120)
+  status    CourtStatus @default(AVAILABLE)
+  club      Club        @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  bookings  Booking[]
+
+  @@unique([clubId, name])
+  @@unique([id, clubId])
+  @@index([clubId, status])
+  @@map("courts")
+}
+
+model Booking {
+  id        String        @id @default(uuid()) @db.Uuid
+  clubId    String        @db.Uuid
+  courtId   String        @db.Uuid
+  startsAt  DateTime
+  endsAt    DateTime
+  status    BookingStatus @default(RESERVED)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  club      Club          @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  court     Court         @relation(fields: [courtId, clubId], references: [id, clubId], onDelete: Cascade)
+
+  @@unique([id, clubId])
+  @@index([clubId, startsAt, endsAt])
+  @@index([courtId, startsAt, endsAt])
+  @@map("bookings")
+}
