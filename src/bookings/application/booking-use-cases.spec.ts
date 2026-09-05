@@ -7,6 +7,7 @@ describe('booking use cases', () => {
   const repository: IBookingRepository = {
     create: async (booking) => booking,
     findById: async () => null,
+    findAllByClubId: async () => [],
   };
 
   it('creates a booking without a customer dependency', async () => {

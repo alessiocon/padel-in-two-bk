@@ -19,7 +19,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { CreateBookingUseCase, GetBookingUseCase } from '../application/booking-use-cases.js';
+import { CreateBookingUseCase, GetBookingUseCase, GetAllBookingsClubUseCase } from '../application/booking-use-cases.js';
 import { BookingConflictError, BookingCourtNotFoundError, BookingNotFoundError } from '../domain/booking-errors.js';
 import { Booking } from '../domain/booking.js';
 import { BookingResponseDto, CreateBookingDto } from './booking.dto.js';
@@ -30,6 +30,7 @@ export class BookingsController {
   constructor(
     private readonly createBooking: CreateBookingUseCase,
     private readonly getBooking: GetBookingUseCase,
+    private readonly GetAllBookingsClub: GetAllBookingsClubUseCase,
   ) {}
 
   @Post()
@@ -64,6 +65,21 @@ export class BookingsController {
   ): Promise<BookingResponseDto> {
     try {
       return this.toResponse(await this.getBooking.execute(id, clubId));
+    } catch (error) {
+      throw this.toHttpError(error);
+    }
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Get all bookings for a club' })
+  @ApiOkResponse({ type: [BookingResponseDto] })
+  @ApiNotFoundResponse({ description: 'Booking not found' })
+  async findAllByClubId(
+    @Param('clubId', new ParseUUIDPipe()) clubId: string,
+  ): Promise<BookingResponseDto[]> {
+    try {
+      var bookings = await this.GetAllBookingsClub.execute(clubId);
+      return bookings.map((booking) => this.toResponse(booking));
     } catch (error) {
       throw this.toHttpError(error);
     }

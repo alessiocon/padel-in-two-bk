@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { PrismaService } from '../database/prisma.service.js';
 import {
   CreateClubUseCase,
   DeleteClubUseCase,
@@ -9,17 +8,17 @@ import {
 } from './application/club-use-cases.js';
 import { CLUB_REPOSITORY } from './domain/club-repository.js';
 import { PrismaClubRepository } from './infrastructure/prisma-club-repository.js';
-import { CalendarAvailabilityService } from './application/calendar-availability.service.js';
-import { CalendarController } from './presentation/calendar.controller.js';
 import { ClubsController } from './presentation/clubs.controller.js';
+import { BOOKING_REPOSITORY } from '../bookings/domain/booking-repository.js';
+import { PrismaBookingRepository } from '../bookings/infrastructure/prisma-booking-repository.js';
 
 @Module({
-  controllers: [ClubsController, CalendarController],
+  controllers: [ClubsController],
   providers: [
-    PrismaService,
     PrismaClubRepository,
-    CalendarAvailabilityService,
+    PrismaBookingRepository,
     { provide: CLUB_REPOSITORY, useExisting: PrismaClubRepository },
+    { provide: BOOKING_REPOSITORY, useExisting: PrismaBookingRepository },
     CreateClubUseCase,
     ListClubsUseCase,
     GetClubUseCase,

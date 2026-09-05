@@ -31,3 +31,13 @@ export class GetBookingUseCase {
     return booking;
   }
 }
+
+@Injectable()
+export class GetAllBookingsClubUseCase {
+  constructor(@Inject(BOOKING_REPOSITORY) private readonly repository: IBookingRepository) {}
+
+  async execute(clubId: string): Promise<Booking[]> {
+    const bookings = await this.repository.findAllByClubId(clubId);
+    return bookings;
+  }
+}

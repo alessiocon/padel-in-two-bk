@@ -2,16 +2,16 @@ import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { AppModule, ObserveInstrument } from './app.module.js';
+import { AppModule/*, ObserveInstrument */} from './app.module.js';
 import { getEnv } from './config/env.js';
 import { loadAppSettings } from './config/appsettings.js';
 
 async function bootstrap() {
   const env = getEnv();
   const appSettings = loadAppSettings();
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create(AppModule, /*{
     instrument: ObserveInstrument,
-  });
+  }*/);
 
   app.useGlobalPipes(
     new ValidationPipe({

@@ -41,6 +41,11 @@ export class PrismaBookingRepository implements IBookingRepository {
     return record ? this.toDomain(record) : null;
   }
 
+  async findAllByClubId(clubId: string): Promise<Booking[]> {
+    const records = await this.prisma.booking.findMany({ where: { clubId } });
+    return records.map((record) => this.toDomain(record));
+  }
+
   private toDomain(record: {
     id: string;
     clubId: string;

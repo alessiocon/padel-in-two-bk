@@ -66,51 +66,51 @@ export class ClubsController {
     }
   }
 
-  @Post()
-  @ApiOperation({ summary: 'Create a club' })
-  @ApiBody({ type: CreateClubDto })
-  @ApiCreatedResponse({ type: ClubResponseDto })
-  @ApiBadRequestResponse({ description: 'Invalid club data' })
-  @ApiConflictResponse({ description: 'Club name already exists' })
-  async create(@Body() body: CreateClubDto): Promise<ClubResponseDto> {
-    try {
-      return this.toResponse(await this.createClub.execute(body));
-    } catch (error) {
-      throw this.toHttpError(error);
-    }
-  }
+  // @Post()
+  // @ApiOperation({ summary: 'Create a club' })
+  // @ApiBody({ type: CreateClubDto })
+  // @ApiCreatedResponse({ type: ClubResponseDto })
+  // @ApiBadRequestResponse({ description: 'Invalid club data' })
+  // @ApiConflictResponse({ description: 'Club name already exists' })
+  // async create(@Body() body: CreateClubDto): Promise<ClubResponseDto> {
+  //   try {
+  //     return this.toResponse(await this.createClub.execute(body));
+  //   } catch (error) {
+  //     throw this.toHttpError(error);
+  //   }
+  // }
 
-  @Patch(':id')
-  @ApiOperation({ summary: 'Update a club' })
-  @ApiBody({ type: UpdateClubDto })
-  @ApiOkResponse({ type: ClubResponseDto })
-  @ApiBadRequestResponse({ description: 'Invalid club data or UUID' })
-  @ApiNotFoundResponse({ description: 'Club not found' })
-  @ApiConflictResponse({ description: 'Club name already exists' })
-  async update(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() body: UpdateClubDto,
-  ): Promise<ClubResponseDto> {
-    try {
-      return this.toResponse(await this.updateClub.execute({ id, ...body }));
-    } catch (error) {
-      throw this.toHttpError(error);
-    }
-  }
+  // @Patch(':id')
+  // @ApiOperation({ summary: 'Update a club' })
+  // @ApiBody({ type: UpdateClubDto })
+  // @ApiOkResponse({ type: ClubResponseDto })
+  // @ApiBadRequestResponse({ description: 'Invalid club data or UUID' })
+  // @ApiNotFoundResponse({ description: 'Club not found' })
+  // @ApiConflictResponse({ description: 'Club name already exists' })
+  // async update(
+  //   @Param('id', new ParseUUIDPipe()) id: string,
+  //   @Body() body: UpdateClubDto,
+  // ): Promise<ClubResponseDto> {
+  //   try {
+  //     return this.toResponse(await this.updateClub.execute({ id, ...body }));
+  //   } catch (error) {
+  //     throw this.toHttpError(error);
+  //   }
+  // }
 
-  @Delete(':id')
-  @HttpCode(204)
-  @ApiOperation({ summary: 'Delete a club' })
-  @ApiNoContentResponse()
-  @ApiBadRequestResponse({ description: 'Invalid UUID' })
-  @ApiNotFoundResponse({ description: 'Club not found' })
-  async remove(@Param('id', new ParseUUIDPipe()) id: string): Promise<void> {
-    try {
-      await this.deleteClub.execute(id);
-    } catch (error) {
-      throw this.toHttpError(error);
-    }
-  }
+  // @Delete(':id')
+  // @HttpCode(204)
+  // @ApiOperation({ summary: 'Delete a club' })
+  // @ApiNoContentResponse()
+  // @ApiBadRequestResponse({ description: 'Invalid UUID' })
+  // @ApiNotFoundResponse({ description: 'Club not found' })
+  // async remove(@Param('id', new ParseUUIDPipe()) id: string): Promise<void> {
+  //   try {
+  //     await this.deleteClub.execute(id);
+  //   } catch (error) {
+  //     throw this.toHttpError(error);
+  //   }
+  // }
 
   private toResponse(club: Club): ClubResponseDto {
     return { ...club.toPrimitives(), courtCount: club.courts.length };
