@@ -9,6 +9,8 @@ import {
   ParseUUIDPipe,
   Post,
   Body,
+  Request,
+  Patch,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -19,10 +21,11 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { CreateBookingUseCase, GetBookingUseCase, GetAllBookingsClubUseCase } from '../application/booking-use-cases.js';
+import { CreateBookingUseCase, GetBookingUseCase, GetAllBookingsClubUseCase, ChangeBooking } from '../application/booking-use-cases.js';
 import { BookingConflictError, BookingCourtNotFoundError, BookingNotFoundError } from '../domain/booking-errors.js';
-import { Booking } from '../domain/booking.js';
-import { BookingResponseDto, CreateBookingDto } from './booking.dto.js';
+import { Booking, BookingStatus } from '../domain/booking.js';
+import { BookingResponseDto, CreateBookingDto, UpdateBookingDto } from './booking.dto.js';
+import { Auth } from '../../auth/infrastructure/decorators/auth.decorator.js';
 
 @ApiTags('bookings')
 @Controller('clubs/:clubId/bookings')
@@ -31,9 +34,11 @@ export class BookingsController {
     private readonly createBooking: CreateBookingUseCase,
     private readonly getBooking: GetBookingUseCase,
     private readonly GetAllBookingsClub: GetAllBookingsClubUseCase,
+    private readonly ChangeBooking: ChangeBooking
   ) {}
 
   @Post()
+  @Auth()
   @ApiOperation({ summary: 'Create a booking' })
   @ApiCreatedResponse({ type: BookingResponseDto })
   @ApiBadRequestResponse({ description: 'Invalid booking or court association' })
@@ -41,13 +46,17 @@ export class BookingsController {
   async create(
     @Param('clubId', new ParseUUIDPipe()) clubId: string,
     @Body() body: CreateBookingDto,
+    @Request() req: any
   ): Promise<BookingResponseDto> {
     try {
       const booking = await this.createBooking.execute({
         clubId,
         courtId: body.courtId,
-        startsAt: new Date(body.startsAt),
-        status: body.status,
+        userId: req.user.userId,
+        description: body.description,
+        startsAt: body.startsAt,
+        slots: body.slots,
+        status: BookingStatus.PENDING
       });
       return this.toResponse(booking);
     } catch (error) {
@@ -84,6 +93,30 @@ export class BookingsController {
       throw this.toHttpError(error);
     }
   }
+
+  @Patch(':id')
+  @Auth()
+  @ApiOperation({ summary: 'Change booking by id' })
+  @ApiOkResponse({ type: [BookingResponseDto] })
+  @ApiNotFoundResponse({ description: 'Booking not found' })
+  // @UseGuards(JwtAuthGuard, RolesGuard)
+  // @Roles('CLUB_OWNER', 'ADMIN')
+  async changeBookingById(
+    @Param('clubId', new ParseUUIDPipe()) clubId: string,
+    @Param('id', new ParseUUIDPipe()) bookingId: string,
+    @Request() req: any,
+    @Body() body: UpdateBookingDto
+    // @CurrentUser() owner: User
+  ) {
+    return await this.ChangeBooking.execute({
+      clubId,
+      bookingId,
+      userId: req.user.userId,
+      status: body.status
+    }
+    );
+  }
+
 
   private toResponse(booking: Booking): BookingResponseDto {
     return booking.toPrimitives();

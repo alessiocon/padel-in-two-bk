@@ -1,26 +1,74 @@
 import { Club } from '../domain/club.js';
 import { ClubNotFoundError } from '../domain/club-errors.js';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, ForbiddenException} from '@nestjs/common';
+import { UserRole } from './../../user/domain/user.entity.js';
 import { CLUB_REPOSITORY, type IClubRepository } from '../domain/club-repository.js';
+import { USER_REPOSITORY, type IUserRepository } from '../../user/domain/user.repository.interface.js';
+import { CLOCK_SERVICE, type IClockService } from '../../service/interface/IClockService.js';
 
-export type CreateClubCommand = { name: string; email: string; courtCount: number };
-export type UpdateClubCommand = { id: string; name?: string; email?: string; status?: 'active' | 'inactive' };
+
+
+export type CreateClubInput = {
+  ownerId: string; 
+  name: string;
+  email: string;
+  timezone: string
+  slotDurationMinutes: number; 
+  openingTime: string;         
+  closingTime: string;       
+  courtsCount: number;
+}
+export type UpdateClubCommand = { id: string; name?: string; email?: string; status?: 'ACTIVE' | 'INACTIVE' };
+
+
 
 @Injectable()
 export class CreateClubUseCase {
-  constructor(@Inject(CLUB_REPOSITORY) private readonly clubs: IClubRepository) {}
+  constructor(
+    @Inject(CLOCK_SERVICE)   private readonly clock: IClockService,
+    @Inject(CLUB_REPOSITORY) private readonly clubs: IClubRepository,
+    @Inject(USER_REPOSITORY) private readonly user: IUserRepository
+  ) {}
 
-  execute(command: CreateClubCommand): Promise<Club> {
-    return this.clubs.create(Club.create(command.name, command.email, undefined, command.courtCount));
+  async execute(command: CreateClubInput): Promise<Club> {
+    const owner = await this.user.findById(command.ownerId);
+
+    if (!owner) {
+      throw new NotFoundException(`User with ID ${command.ownerId} does not exist.`);
+    }
+
+    // Opzionale: verifica che l'utente abbia il ruolo adatto per possedere un club
+    if (owner.role !== UserRole.CLUB_OWNER && owner.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('User is not authorized to own a club.');
+    }
+
+    var dateNow = this.clock.now();
+    
+    return await this.clubs.create(Club.create(
+      {
+        ownerId :command.ownerId,
+        name: command.name,
+        email :command.email,
+        timezone :command.timezone,
+        slotDurationMinutes :command.slotDurationMinutes,
+        openingTime :command.openingTime,
+        closingTime :command.closingTime,
+        createdAt :dateNow
+      },
+      command.courtsCount
+    ));
   }
 }
+
+      
+      
 
 @Injectable()
 export class ListClubsUseCase {
   constructor(@Inject(CLUB_REPOSITORY) private readonly clubs: IClubRepository) {}
 
-  execute(): Promise<Club[]> {
-    return this.clubs.findAll();
+  async execute(): Promise<Club[]> {
+    return await this.clubs.findAll();
   }
 }
 
@@ -50,9 +98,9 @@ export class UpdateClubUseCase {
     if (command.email !== undefined) {
       club.changeEmail(command.email);
     }
-    if (command.status === 'active') {
+    if (command.status === 'ACTIVE') {
       club.activate();
-    } else if (command.status === 'inactive') {
+    } else if (command.status === 'INACTIVE') {
       club.deactivate();
     }
 

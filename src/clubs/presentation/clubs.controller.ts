@@ -2,27 +2,24 @@ import {
   BadRequestException,
   ConflictException,
   Controller,
-  Delete,
   Get,
   InternalServerErrorException,
   NotFoundException,
   Param,
   ParseUUIDPipe,
-  Patch,
   Post,
   Body,
-  HttpCode,
 } from '@nestjs/common';
 import {
   ApiBody,
   ApiConflictResponse,
   ApiCreatedResponse,
-  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiBadRequestResponse,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import {
   CreateClubUseCase,
@@ -34,8 +31,10 @@ import {
 import { ClubConflictError, ClubNotFoundError } from '../domain/club-errors.js';
 import { Club } from '../domain/club.js';
 import { CreateClubDto, ClubResponseDto, UpdateClubDto } from './club.dto.js';
+import { Auth } from '../../auth/infrastructure/decorators/auth.decorator.js';
 
 @ApiTags('clubs')
+@ApiBearerAuth('access-token')
 @Controller('clubs')
 export class ClubsController {
   constructor(
@@ -66,19 +65,29 @@ export class ClubsController {
     }
   }
 
-  // @Post()
-  // @ApiOperation({ summary: 'Create a club' })
-  // @ApiBody({ type: CreateClubDto })
-  // @ApiCreatedResponse({ type: ClubResponseDto })
-  // @ApiBadRequestResponse({ description: 'Invalid club data' })
-  // @ApiConflictResponse({ description: 'Club name already exists' })
-  // async create(@Body() body: CreateClubDto): Promise<ClubResponseDto> {
-  //   try {
-  //     return this.toResponse(await this.createClub.execute(body));
-  //   } catch (error) {
-  //     throw this.toHttpError(error);
-  //   }
-  // }
+  @Post()
+  @Auth()
+  @ApiOperation({ summary: 'Create a club' })
+  @ApiBody({ type: CreateClubDto })
+  @ApiCreatedResponse({ type: ClubResponseDto })
+  @ApiBadRequestResponse({ description: 'Invalid club data' })
+  @ApiConflictResponse({ description: 'Club name already exists' })
+  async create(@Body() body: CreateClubDto): Promise<ClubResponseDto> {
+    try {
+      return this.toResponse(await this.createClub.execute({
+        ownerId: body.ownerId,
+        name: body.name,
+        email: body.email,
+        timezone: body.timezone , 
+        slotDurationMinutes: body.slotDurationMinutes, 
+        openingTime: body.openingTime, 
+        closingTime: body.closingTime, 
+        courtsCount:body.courtCount
+      }));
+    } catch (error) {
+      throw this.toHttpError(error);
+    }
+  }
 
   // @Patch(':id')
   // @ApiOperation({ summary: 'Update a club' })

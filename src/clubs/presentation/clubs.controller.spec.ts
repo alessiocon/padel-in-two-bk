@@ -13,7 +13,9 @@ import {
 import { Club } from '../domain/club.js';
 import { ClubConflictError } from '../domain/club-errors.js';
 import { CLUB_REPOSITORY, type IClubRepository } from '../domain/club-repository.js';
+import { USER_REPOSITORY, type IUserRepository } from './../../user/domain/user.repository.interface.js';
 import { ClubsController } from './clubs.controller.js';
+import { UserRole } from '../../user/domain/user.entity.js';
 
 class InMemoryClubRepository implements IClubRepository {
   private readonly records = new Map<string, Club>();
@@ -44,18 +46,38 @@ class InMemoryClubRepository implements IClubRepository {
   }
 }
 
+class InMemoryUserRepository implements IUserRepository {
+  async findById(id: string) {
+    return {
+      id,
+      email: 'owner@test.com',
+      role: UserRole.CLUB_OWNER,
+    } as any;
+  }
+
+  async findByEmail() {
+    return null;
+  }
+
+  async create(user: any) {
+    return user;
+  }
+}
+
 describe('ClubsController (HTTP)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
     const repository = new InMemoryClubRepository();
+    const userRepository = new InMemoryUserRepository()
     const module = await Test.createTestingModule({
       controllers: [ClubsController],
       providers: [
         { provide: CLUB_REPOSITORY, useValue: repository },
+        { provide: USER_REPOSITORY, useValue: userRepository },
         {
           provide: CreateClubUseCase,
-          useFactory: () => new CreateClubUseCase(repository),
+          useFactory: () => new CreateClubUseCase(repository, userRepository),
         },
         {
           provide: ListClubsUseCase,

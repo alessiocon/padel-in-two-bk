@@ -1,20 +1,41 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsIn, IsUUID } from 'class-validator';
-import type { BookingStatus } from '../domain/booking.js';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsDateString, IsIn, IsUUID, IsOptional, MaxLength } from 'class-validator';
+import { BookingStatus } from '../domain/booking.js';
+import { Optional } from '@nestjs/common';
 
 export class CreateBookingDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   courtId!: string;
 
+  @ApiProperty({ 
+    type: String, 
+    description: 'Note aggiuntive o riferimenti per prenotazioni manuali',
+    example: "prenotazione di Mario rossi 08111111111",
+    required: false })
+  @IsOptional()
+  @MaxLength(255)
+  description?: string;
+
   @ApiProperty({ format: 'date-time' })
   @IsDateString()
   startsAt!: string;
 
-  @ApiPropertyOptional({ enum: ['free', 'reserved', 'searching', 'blocked'], default: 'reserved' })
-  @IsIn(['free', 'reserved', 'searching', 'blocked'])
-  status?: BookingStatus;
+  @ApiProperty({ type: Number, description: 'Number of slots to book (1-2)' })
+  @IsOptional()
+  @IsIn([1, 2])
+  slots?: number; // Optional array of slots, can be used for future extensions
 }
+
+
+
+export class UpdateBookingDto {
+  @ApiProperty({ enum: BookingStatus, example: BookingStatus.RESERVED })
+  @IsOptional()
+  status: BookingStatus;
+}
+
+
 
 export class BookingResponseDto {
   @ApiProperty({ format: 'uuid' })
@@ -26,13 +47,16 @@ export class BookingResponseDto {
   @ApiProperty({ format: 'uuid' })
   courtId!: string;
 
+  @ApiProperty({ type: String })
+  description?: string;
+
   @ApiProperty({ format: 'date-time' })
   startsAt!: Date;
 
   @ApiProperty({ format: 'date-time' })
   endsAt!: Date;
 
-  @ApiProperty({ enum: ['free', 'reserved', 'searching', 'blocked'] })
+  @ApiProperty({ enum: BookingStatus, example: BookingStatus.RESERVED })
   status!: BookingStatus;
 
   @ApiProperty({ format: 'date-time' })

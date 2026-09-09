@@ -4,6 +4,18 @@
             "folderPath": "padel-in-two-bk\\src\\clubs\\",
             "color": "foldercolorizer.color_5fafaf",
             "badge": "🥎"
+        },
+        {
+            "folderPath": "padel-in-two-bk\\src\\auth\\",
+            "color": "foldercolorizer.color_5fafaf"
+        },
+        {
+            "folderPath": "padel-in-two-bk\\src\\user\\",
+            "color": "foldercolorizer.color_5fafaf"
+        },
+        {
+            "folderPath": "padel-in-two-bk\\src\\bookings\\",
+            "color": "foldercolorizer.color_5fafaf"
         }
     ],
     "folder-color.favoriteColors": [

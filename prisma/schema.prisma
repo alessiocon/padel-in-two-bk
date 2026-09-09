@@ -6,6 +6,14 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserRole {
+  USER       @map("user")
+  CLUB_OWNER @map("club_owner")
+  ADMIN      @map("admin")
+
+  @@map("user_role")
+}
+
 enum ClubStatus {
   ACTIVE   @map("active")
   INACTIVE @map("inactive")
@@ -14,43 +22,71 @@ enum ClubStatus {
 }
 
 enum CourtStatus {
-  AVAILABLE  @map("available")
-  RESERVED   @map("reserved")
+  AVAILABLE   @map("available")
+  RESERVED    @map("reserved")
   MAINTENANCE @map("maintenance")
-  INACTIVE   @map("inactive")
+  INACTIVE    @map("inactive")
 
   @@map("court_status")
 }
 
 enum BookingStatus {
-  FREE      @map("free")
-  RESERVED  @map("reserved")
-  SEARCHING @map("searching")
-  BLOCKED   @map("blocked")
+  RESERVED    @map("reserved")
+  PENDING     @map("pending")
+  CONFIRMED   @map("confirmed")
+  CANCELLED   @map("cancelled")
 
   @@map("booking_status")
 }
 
-model Club {
-  id          String         @id @default(uuid()) @db.Uuid
-  name        String         @db.VarChar(160)
-  email       String         @unique @db.VarChar(320)
-  status      ClubStatus     @default(ACTIVE)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  courts      Court[]
-  bookings    Booking[]
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.VarChar(320)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  firstName    String   @map("first_name") @db.VarChar(100)
+  lastName     String   @map("last_name") @db.VarChar(100)
+  role         UserRole @default(USER)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz
 
+  // Relazioni
+  bookings Booking[]
+  clubs    Club[]    @relation("ClubOwner")
+
+  @@map("users")
+}
+
+model Club {
+  id                  String     @id @default(uuid()) @db.Uuid
+  ownerId             String     @map("owner_id") @db.Uuid
+  name                String     @db.VarChar(160)
+  email               String     @unique @db.VarChar(320)
+  status              ClubStatus @default(ACTIVE)
+  timezone            String      @default("Europe/Rome") @db.VarChar(50)
+  slotDurationMinutes Int        @default(90) @map("slot_duration_minutes")
+  openingTime         String     @default("08:00") @map("opening_time") @db.VarChar(5)
+  closingTime         String     @default("23:00") @map("closing_time") @db.VarChar(5)
+  createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relazioni
+  owner    User      @relation("ClubOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  courts   Court[]
+  bookings Booking[]
+
+  @@index([ownerId])
   @@map("clubs")
 }
 
 model Court {
-  id        String      @id @default(uuid()) @db.Uuid
-  clubId    String      @db.Uuid
-  name      String      @db.VarChar(120)
-  status    CourtStatus @default(AVAILABLE)
-  club      Club        @relation(fields: [clubId], references: [id], onDelete: Cascade)
-  bookings  Booking[]
+  id     String      @id @default(uuid()) @db.Uuid
+  clubId String      @map("club_id") @db.Uuid
+  name   String      @db.VarChar(120)
+  status CourtStatus @default(AVAILABLE)
+
+  club     Club      @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  bookings Booking[]
 
   @@unique([clubId, name])
   @@unique([id, clubId])
@@ -59,19 +95,24 @@ model Court {
 }
 
 model Booking {
-  id        String        @id @default(uuid()) @db.Uuid
-  clubId    String        @db.Uuid
-  courtId   String        @db.Uuid
-  startsAt  DateTime
-  endsAt    DateTime
-  status    BookingStatus @default(RESERVED)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-  club      Club          @relation(fields: [clubId], references: [id], onDelete: Cascade)
-  court     Court         @relation(fields: [courtId, clubId], references: [id, clubId], onDelete: Cascade)
+  id          String        @id @default(uuid()) @db.Uuid
+  clubId      String        @map("club_id") @db.Uuid
+  courtId     String        @map("court_id") @db.Uuid
+  userId      String        @map("user_id") @db.Uuid
+  description String?       @db.VarChar(255)
+  startsAt    DateTime      @map("starts_at") @db.Timestamptz
+  endsAt      DateTime      @map("ends_at") @db.Timestamptz
+  status      BookingStatus @default(RESERVED)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  club  Club   @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  court Court  @relation(fields: [courtId, clubId], references: [id, clubId], onDelete: Cascade)
+  user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@unique([id, clubId])
   @@index([clubId, startsAt, endsAt])
   @@index([courtId, startsAt, endsAt])
+  @@index([userId])
   @@map("bookings")
 }

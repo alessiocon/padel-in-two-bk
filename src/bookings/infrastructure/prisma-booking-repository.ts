@@ -1,12 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
-import { Booking, type BookingProps } from '../domain/booking.js';
+import { Booking } from '../domain/booking.js';
 import { BookingConflictError, BookingCourtNotFoundError } from '../domain/booking-errors.js';
 import type { IBookingRepository } from '../domain/booking-repository.js';
+import { BookingMapper } from './prisma-booking-mapper.js';
 
 @Injectable()
 export class PrismaBookingRepository implements IBookingRepository {
   constructor(private readonly prisma: PrismaService) {}
+  
 
   async create(booking: Booking): Promise<Booking> {
     const court = await this.prisma.court.findUnique({ where: { id: booking.courtId } });
@@ -14,20 +16,23 @@ export class PrismaBookingRepository implements IBookingRepository {
       throw new BookingCourtNotFoundError(booking.courtId);
     }
 
+    var bookingPrimitive = booking.toPrimitives()
     try {
       const record = await this.prisma.booking.create({
         data: {
           id: booking.id,
           clubId: booking.clubId,
           courtId: booking.courtId,
+          userId: booking.userId,
+          description: bookingPrimitive.description,
           startsAt: booking.startsAt,
           endsAt: booking.endsAt,
-          status: booking.status.toUpperCase() as 'FREE' | 'RESERVED' | 'SEARCHING' | 'BLOCKED',
-          createdAt: booking.toPrimitives().createdAt,
-          updatedAt: booking.toPrimitives().updatedAt,
+          status: BookingMapper.toPrismaStatus(booking.status),
+          createdAt: bookingPrimitive.createdAt,
+          updatedAt: bookingPrimitive.updatedAt,
         },
       });
-      return this.toDomain(record);
+      return BookingMapper.toDomain(record);
     } catch (error) {
       if (this.isOverlapError(error)) {
         throw new BookingConflictError();
@@ -38,29 +43,52 @@ export class PrismaBookingRepository implements IBookingRepository {
 
   async findById(id: string, clubId: string): Promise<Booking | null> {
     const record = await this.prisma.booking.findFirst({ where: { id, clubId } });
-    return record ? this.toDomain(record) : null;
+    return record ? BookingMapper.toDomain(record) : null;
   }
 
   async findAllByClubId(clubId: string): Promise<Booking[]> {
     const records = await this.prisma.booking.findMany({ where: { clubId } });
-    return records.map((record) => this.toDomain(record));
+    return records.map((record) => BookingMapper.toDomain(record));
   }
 
-  private toDomain(record: {
-    id: string;
-    clubId: string;
-    courtId: string;
-    startsAt: Date;
-    endsAt: Date;
-    status: string;
-    createdAt: Date;
-    updatedAt: Date;
-  }): Booking {
-    const props: BookingProps = {
-      ...record,
-      status: record.status.toLowerCase() as BookingProps['status'],
-    };
-    return Booking.reconstitute(props);
+  async hasOverlappingBooking(courtId: string, startsAt: Date, endsAt: Date): Promise<boolean> {
+    const count = await this.prisma.booking.count({
+      where: {
+        courtId,
+        status: { in: ['RESERVED', 'PENDING', 'CONFIRMED'] }, // Ignora CANCELLED
+        AND: [
+          { startsAt: { lt: endsAt } },
+          { endsAt: { gt: startsAt } },
+        ],
+      },
+    });
+    return count > 0;
+  }
+
+  async update(booking: Booking): Promise<Booking> {
+    const data = BookingMapper.toPersistence(booking);
+    try {
+      // 2. Esegue l'update filtrando per l'ID della prenotazione
+      const updatedRecord = await this.prisma.booking.update({
+        where: { id: booking.id },
+        data: {
+          courtId: data.courtId,
+          startsAt: data.startsAt,
+          endsAt: data.endsAt,
+          status: data.status,
+          updatedAt: data.updatedAt,
+        },
+      });
+
+      // 3. Riconverte il record modificato da Prisma nell'entità di Dominio
+      return BookingMapper.toDomain(updatedRecord);
+    } catch (error) {
+      // Intercetta eventuali violazioni dei vincoli di sovrapposizione a livello DB (Exclusion Constraint / Trigger)
+      if (this.isOverlapError(error)) {
+        throw new BookingConflictError();
+      }
+      throw error;
+    }
   }
 
   private isOverlapError(error: unknown): boolean {

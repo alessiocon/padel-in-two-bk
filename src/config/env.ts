@@ -7,6 +7,7 @@ export type AppEnv = {
   port: number;
   databaseUrl: string;
   jwtSecret: string;
+  jwtExpiresIn: number;
 };
 
 const normalizeNodeEnv = (value: string | undefined): NodeEnv => {
@@ -35,10 +36,17 @@ export function getEnv(): AppEnv {
     throw new Error('Missing required env: JWT_SECRET');
   }
 
+  const jwtExpiresIn = Number(process.env.JWT_EXPIRES_IN) || 3600; // Default to 1 hour if not provided
+  if (!jwtExpiresIn) {
+    throw new Error('Missing required env: JWT_EXPIRES_IN');
+  }
+
+  
   return {
     nodeEnv,
     port: portValue,
     databaseUrl,
     jwtSecret,
+    jwtExpiresIn
   };
 }

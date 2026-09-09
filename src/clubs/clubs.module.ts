@@ -11,6 +11,7 @@ import { PrismaClubRepository } from './infrastructure/prisma-club-repository.js
 import { ClubsController } from './presentation/clubs.controller.js';
 import { BOOKING_REPOSITORY } from '../bookings/domain/booking-repository.js';
 import { PrismaBookingRepository } from '../bookings/infrastructure/prisma-booking-repository.js';
+import { UserModule } from '../user/user.module.js';
 
 @Module({
   controllers: [ClubsController],
@@ -25,6 +26,7 @@ import { PrismaBookingRepository } from '../bookings/infrastructure/prisma-booki
     UpdateClubUseCase,
     DeleteClubUseCase,
   ],
-  exports: [CreateClubUseCase, ListClubsUseCase, GetClubUseCase, UpdateClubUseCase, DeleteClubUseCase],
+  imports: [UserModule],
+  exports: [CreateClubUseCase, ListClubsUseCase, GetClubUseCase, UpdateClubUseCase, DeleteClubUseCase, PrismaClubRepository],
 })
 export class ClubsModule {}

@@ -18,3 +18,9 @@ export class BookingConflictError extends Error {
     this.name = 'BookingConflictError';
   }
 }
+export class BookingPastDateError extends Error {
+  constructor() {
+    super('Non puoi prenotare una data o un orario già passato');
+    this.name = 'BookingPastDateError';
+  }
+}

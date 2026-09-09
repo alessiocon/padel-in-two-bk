@@ -2,9 +2,9 @@ import { Global, Module } from '@nestjs/common';
 // import { createObserveModule } from '@nestjs/observe';
 import { ClubsModule } from './clubs/clubs.module.js';
 import { BookingsModule } from './bookings/bookings.module.js';
-import { getEnv, ENV_CONFIG } from './config/env.js';
-import { PrismaService } from './database/prisma.service.js';
+import { UserModule } from './user/user.module.js';
 import { CoreModule } from './core.module.js';
+import { AuthModule } from './auth/auth.module.js';
 
 
 @Module({
@@ -12,6 +12,8 @@ import { CoreModule } from './core.module.js';
     CoreModule,
     ClubsModule,
     BookingsModule,
+    UserModule,
+    AuthModule,
   ],
 })
 export class AppModule {}

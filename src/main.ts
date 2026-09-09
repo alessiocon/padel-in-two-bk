@@ -25,6 +25,17 @@ async function bootstrap() {
     .setTitle('PadelInTwo API')
     .setDescription('PadelInTwo backend API')
     .setVersion('1.0')
+    .addBearerAuth(
+    {
+      type: 'http',
+      scheme: 'bearer',
+      bearerFormat: 'JWT',
+      name: 'JWT',
+      description: 'Inserisci il token JWT',
+      in: 'header',
+    },
+    'access-token',
+    )
     .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, swaggerDocument);
