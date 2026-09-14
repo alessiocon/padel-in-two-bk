@@ -12,11 +12,15 @@ export type CreateClubInput = {
   ownerId: string; 
   name: string;
   email: string;
-  timezone: string
+  position: string;
+  timezone: string;
+  slotPrice: number;
+  racketPrice: number;
   slotDurationMinutes: number; 
   openingTime: string;         
   closingTime: string;       
-  courtsCount: number;
+  courtInDoor: number;
+  courtOutDoor: number;
 }
 export type UpdateClubCommand = { id: string; name?: string; email?: string; status?: 'ACTIVE' | 'INACTIVE' };
 
@@ -49,13 +53,17 @@ export class CreateClubUseCase {
         ownerId :command.ownerId,
         name: command.name,
         email :command.email,
+        position: command.position,
         timezone :command.timezone,
+        racketPrice: command.racketPrice,
         slotDurationMinutes :command.slotDurationMinutes,
         openingTime :command.openingTime,
         closingTime :command.closingTime,
         createdAt :dateNow
       },
-      command.courtsCount
+      command.slotPrice,
+      command.courtInDoor,
+      command.courtOutDoor
     ));
   }
 }

@@ -11,6 +11,7 @@ import {
   Body,
   Request,
   Patch,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -80,14 +81,16 @@ export class BookingsController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all bookings for a club' })
+  @ApiOperation({ summary: 'Get bookings for a club' })
   @ApiOkResponse({ type: [BookingResponseDto] })
   @ApiNotFoundResponse({ description: 'Booking not found' })
   async findAllByClubId(
     @Param('clubId', new ParseUUIDPipe()) clubId: string,
+    @Query('date') date?: string
   ): Promise<BookingResponseDto[]> {
     try {
-      var bookings = await this.GetAllBookingsClub.execute(clubId);
+      date ??= new Date().toISOString().slice(0, 10);
+      var bookings = await this.GetAllBookingsClub.execute(clubId , date );
       return bookings.map((booking) => this.toResponse(booking));
     } catch (error) {
       throw this.toHttpError(error);

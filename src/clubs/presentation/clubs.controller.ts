@@ -41,8 +41,8 @@ export class ClubsController {
     private readonly createClub: CreateClubUseCase,
     private readonly listClubs: ListClubsUseCase,
     private readonly getClub: GetClubUseCase,
-    private readonly updateClub: UpdateClubUseCase,
-    private readonly deleteClub: DeleteClubUseCase,
+    // private readonly updateClub: UpdateClubUseCase,
+    // private readonly deleteClub: DeleteClubUseCase,
   ) {}
 
   @Get()
@@ -78,11 +78,15 @@ export class ClubsController {
         ownerId: body.ownerId,
         name: body.name,
         email: body.email,
-        timezone: body.timezone , 
+        position: body.position,
+        timezone: body.timezone,
+        slotPrice:  body.slotPrice,
+        racketPrice: body.racketPrice,
         slotDurationMinutes: body.slotDurationMinutes, 
         openingTime: body.openingTime, 
         closingTime: body.closingTime, 
-        courtsCount:body.courtCount
+        courtInDoor: body.courtInDoor,
+        courtOutDoor: body.courtOutDoor
       }));
     } catch (error) {
       throw this.toHttpError(error);

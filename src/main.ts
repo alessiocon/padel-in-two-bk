@@ -5,6 +5,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule/*, ObserveInstrument */} from './app.module.js';
 import { getEnv } from './config/env.js';
 import { loadAppSettings } from './config/appsettings.js';
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const env = getEnv();
@@ -13,13 +14,14 @@ async function bootstrap() {
     instrument: ObserveInstrument,
   }*/);
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
+  // app.useGlobalPipes(
+  //   new ValidationPipe({
+  //     whitelist: true,
+  //     forbidNonWhitelisted: true,
+  //     transform: true,
+  //   }),
+  // );
+  app.setGlobalPrefix('api');
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('PadelInTwo API')
@@ -37,6 +39,7 @@ async function bootstrap() {
     'access-token',
     )
     .build();
+
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, swaggerDocument);
 
@@ -44,7 +47,13 @@ async function bootstrap() {
     app.enableCors({
       origin: appSettings.api.cors.allowedOrigins,
       credentials: true,
+      methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
     });
+    app.useGlobalPipes(new ValidationPipe());
+    app.use(cookieParser());
+
+    
   }
 
   await app.listen(env.port);

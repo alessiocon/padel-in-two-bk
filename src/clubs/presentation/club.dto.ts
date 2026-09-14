@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsIn, IsInt, IsNotEmpty, IsOptional, IsPositive, IsString, IsUUID, Matches, MaxLength } from 'class-validator';
+import { IsEmail, IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Matches, Max, MaxLength, Min } from 'class-validator';
 import { ClubStatus} from "./../domain/club.js"
+import { Decimal } from '@prisma/client/runtime/client';
 
 export class CreateClubDto {
   @ApiProperty({ example: 'Padel Milano' })
@@ -19,15 +20,41 @@ export class CreateClubDto {
   @IsNotEmpty()
   ownerId!: string;
 
-  @ApiPropertyOptional({ example: 1, default: 1, minimum: 1 })
+  @ApiPropertyOptional({ example: 1, default: 1, minimum: 0, maximum: 10 })
   @IsOptional()
   @IsInt()
   @IsPositive()
-  courtCount: number = 1;
+  courtInDoor: number = 1;
+
+  @ApiPropertyOptional({ example: 1, default: 1, minimum: 0, maximum: 10})
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  courtOutDoor: number = 1;
+
+  @ApiProperty({ example: 'Via dei mille, 22, Napoli' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(150)
+  position: string;
   
   @ApiPropertyOptional({type: String, example: "Europe/Rome", default: "Europe/Rome" })
   @IsOptional()
   timezone: string
+
+  @ApiPropertyOptional({ example: 43.20, default: 0, minimum: 0, maximum: 999})
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'il costo del campo deve essere un numero valido con massimo 2 cifre decimali' })
+  @Min(0)
+  @Max(999)
+  slotPrice: number;
+
+  @ApiPropertyOptional({ example: 2, default: 0, minimum: 0, maximum: 99})
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'il costo della pala deve essere un numero valido con massimo 2 cifre decimali' })
+  @Min(0)
+  @Max(99)
+  racketPrice: number
 
   @ApiPropertyOptional({ example: 90, default: 90 })
   @IsOptional()

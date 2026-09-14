@@ -49,7 +49,9 @@ export class ClubMapper {
       name: record.name,
       email: record.email,
       status: this.PRISMA_TO_DOMAIN_CLUB_STATUS[record.status],
+      position: record.position,
       timezone: record.timezone,
+      racketPrice: record.racketPrice.toNumber(),
       slotDurationMinutes: record.slotDurationMinutes,
       openingTime: record.openingTime,
       closingTime: record.closingTime,
@@ -59,6 +61,8 @@ export class ClubMapper {
         id: court.id,
         clubId: court.clubId,
         name: court.name,
+        isIndoor: court.isIndoor,
+        price: court.price.toNumber(),
         status: this.PRISMA_TO_DOMAIN_COURT_STATUS[court.status],
       })),
     };
@@ -75,7 +79,9 @@ export class ClubMapper {
       name: club.name,
       email: club.email,
       status: this.DOMAIN_TO_PRISMA_CLUB_STATUS[club.status],
+      position: club.position,
       timezone: club.timezone,
+      racketPrice: new Prisma.Decimal(club.racketPrice),
       slotDurationMinutes: club.slotDurationMinutes,
       openingTime: club.openingTime,
       closingTime: club.closingTime,
@@ -95,6 +101,8 @@ export class ClubMapper {
       id: court.id,
       clubId: court.clubId,
       name: court.name,
+      isIndoor: court.isIndoor,
+      price: new Prisma.Decimal(court.price),
       status: this.DOMAIN_TO_PRISMA_COURT_STATUS[court.status],
     };
   }

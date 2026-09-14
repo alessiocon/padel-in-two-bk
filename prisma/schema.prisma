@@ -63,7 +63,9 @@ model Club {
   name                String     @db.VarChar(160)
   email               String     @unique @db.VarChar(320)
   status              ClubStatus @default(ACTIVE)
-  timezone            String      @default("Europe/Rome") @db.VarChar(50)
+  timezone            String     @default("Europe/Rome") @db.VarChar(50)
+  position            String     @default("") @db.VarChar(150)
+  racketPrice         Decimal    @default(0.00) @map("racket_price") @db.Decimal(10, 2)
   slotDurationMinutes Int        @default(90) @map("slot_duration_minutes")
   openingTime         String     @default("08:00") @map("opening_time") @db.VarChar(5)
   closingTime         String     @default("23:00") @map("closing_time") @db.VarChar(5)
@@ -80,10 +82,12 @@ model Club {
 }
 
 model Court {
-  id     String      @id @default(uuid()) @db.Uuid
-  clubId String      @map("club_id") @db.Uuid
-  name   String      @db.VarChar(120)
-  status CourtStatus @default(AVAILABLE)
+  id          String        @id @default(uuid()) @db.Uuid
+  clubId      String        @map("club_id") @db.Uuid
+  name        String        @db.VarChar(120)
+  price       Decimal       @default(0.00) @map("slot_price") @db.Decimal(10, 2)
+  status      CourtStatus   @default(AVAILABLE)
+  isIndoor    Boolean       @default(false) @map("is_indoor")
 
   club     Club      @relation(fields: [clubId], references: [id], onDelete: Cascade)
   bookings Booking[]

@@ -46,8 +46,19 @@ export class PrismaBookingRepository implements IBookingRepository {
     return record ? BookingMapper.toDomain(record) : null;
   }
 
-  async findAllByClubId(clubId: string): Promise<Booking[]> {
-    const records = await this.prisma.booking.findMany({ where: { clubId } });
+  async findAllByClubId(clubId: string, query: string): Promise<Booking[]> {
+    const whereCondition: any = { clubId };
+
+    const startOfDay = new Date(`${query}T00:00:00.000Z`);
+    const endOfDay = new Date(`${query}T23:59:59.999Z`);
+
+    whereCondition.startsAt = {
+      gte: startOfDay,
+      lte: endOfDay,
+    };
+
+
+    const records = await this.prisma.booking.findMany({ where: whereCondition, orderBy: {startsAt: 'asc'} });
     return records.map((record) => BookingMapper.toDomain(record));
   }
 

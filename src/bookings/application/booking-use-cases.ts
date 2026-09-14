@@ -86,8 +86,8 @@ export class GetBookingUseCase {
 export class GetAllBookingsClubUseCase {
   constructor(@Inject(BOOKING_REPOSITORY) private readonly repository: IBookingRepository) {}
 
-  async execute(clubId: string): Promise<Booking[]> {
-    const bookings = await this.repository.findAllByClubId(clubId);
+  async execute(clubId: string, query: string): Promise<Booking[]> {
+    const bookings = await this.repository.findAllByClubId(clubId, query);
     return bookings;
   }
 }

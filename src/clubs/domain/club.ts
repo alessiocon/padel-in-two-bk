@@ -1,3 +1,4 @@
+import { Court } from '@prisma/client';
 import { DateTime } from 'luxon';
 
 export enum ClubStatus { ACTIVE = "active", INACTIVE = "inactive" }
@@ -7,6 +8,8 @@ export type ClubCourt = {
   id: string;
   clubId: string;
   name: string;
+  isIndoor: boolean;
+  price: number;
   status: CourtStatus;
 };
 
@@ -16,7 +19,9 @@ export type ClubProps = {
   name: string;
   email: string;
   status: ClubStatus;
-  timezone: string
+  position: string;
+  timezone: string;
+  racketPrice: number;
   slotDurationMinutes: number; 
   openingTime: string;         
   closingTime: string;         
@@ -30,32 +35,38 @@ export class Club {
     Club.validateName(props.name);
     Club.validateOwnerId(props.ownerId);
     Club.validateClubTime(props.openingTime, props.closingTime, props.slotDurationMinutes);
+    Club.validateCourtCount(props.courts);
+    Club.validateCourtPrice(props.courts);
+    Club.validateRacketPrice(props.racketPrice);
   }
 
   static create(
     input: Omit<ClubProps, 'id' | 'status' | 'updatedAt' | 'courts'  >,
-    courtCount: number = 1,
+    slotPrice: number,
+    courtsIndoor: number = 1,
+    courtsOutdoor: number = 0,
     id = crypto.randomUUID(),
   ): Club {
 
-    return new Club({
-      id,
-      ownerId: input.ownerId,
-      name: input.name.trim(),
-      email: Club.normalizeEmail(input.email),
-      status: ClubStatus.ACTIVE,
-      timezone: input.timezone,
-      slotDurationMinutes: input.slotDurationMinutes,
-      openingTime: input.openingTime,
-      closingTime: input.closingTime,
-      createdAt: input.createdAt,
-      updatedAt: input.createdAt,
-      courts: Array.from({ length: courtCount }, (_, index) => ({
-        id: crypto.randomUUID(),
-        clubId: id,
-        name: `campo ${index + 1}`,
-        status: CourtStatus.AVAILABLE,
-      })),
+  const indoorCourts = Club.createCourts(courtsIndoor, slotPrice, true);
+  const outdoorCourts = Club.createCourts(courtsOutdoor, slotPrice, false, indoorCourts.length);
+  const allCourts = [...indoorCourts, ...outdoorCourts].map(x => {x.clubId = id; return x})
+
+  return new Club({
+    id,
+    ownerId: input.ownerId,
+    name: input.name.trim(),
+    email: Club.normalizeEmail(input.email),
+    status: ClubStatus.ACTIVE,
+    position: input.position,
+    timezone: input.timezone,
+    racketPrice: input.racketPrice,
+    slotDurationMinutes: input.slotDurationMinutes,
+    openingTime: input.openingTime,
+    closingTime: input.closingTime,
+    createdAt: input.createdAt,
+    updatedAt: input.createdAt,
+    courts: allCourts
     });
   }
 
@@ -81,7 +92,9 @@ export class Club {
   get slotDurationMinutes(): number { return this.props.slotDurationMinutes; }
   get openingTime(): string { return this.props.openingTime; }
   get closingTime(): string { return this.props.closingTime; }
+  get position(): string {return this.props.position}
   get timezone(): string { return this.props.timezone;}
+  get racketPrice(): number { return this.props.racketPrice;}
 
 
   updateTimeClubSchedule(openingTime: string, closingTime: string, slotDurationMinutes: number): void {
@@ -182,6 +195,23 @@ export class Club {
     }
   }
 
+  private static createCourts(count:number, price: number, isInDoor: boolean, startIndex: number = 0): ClubCourt[]{
+
+    if(!count) return [];
+
+    var courts : ClubCourt[] = Array.from({ length: count }, (_, index) => ({
+        id: crypto.randomUUID(),
+        clubId: "",
+        name: `campo ${index + startIndex + 1}`,
+        isIndoor: isInDoor,
+        price,
+        status: CourtStatus.AVAILABLE,
+    }))
+
+    return courts;
+  }
+
+
   private touch(): void {
     this.props.updatedAt = new Date();
   }
@@ -263,24 +293,32 @@ export class Club {
 //#endregion
 
 
-  private getLocalTimeComponents(date: Date): { hours: number; minutes: number; totalMinutes: number } {
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: this.timezone, 
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: false,
-    });
+ private static validateCourtCount(listCourt : ClubCourt[]){
+    if(listCourt.length <= 0){
+      throw new Error( `Total courts is 0`);
+    }
+ }
 
-    const parts = formatter.formatToParts(date);
-    const hours = Number(parts.find((p) => p.type === 'hour')?.value ?? 0);
-    const minutes = Number(parts.find((p) => p.type === 'minute')?.value ?? 0);
+ private static validateCourtPrice(courts: ClubCourt[]){
+   courts.forEach(c => {
+    if (c.price < 0) {
+      throw new Error('Price cannot be negative');
+    }
 
-    return {
-      hours,
-      minutes,
-      totalMinutes: hours * 60 + minutes,
-    };
-  }
-
+    if (c.price > 999) {
+      throw new Error('The price for a slot can\'t exceed 999 euros');
+    }
+   });
+    
+ }
   
+ private static validateRacketPrice(slotPrice: number){
+    if (slotPrice < 0) {
+      throw new Error('Price cannot be negative');
+    }
+
+    if (slotPrice > 99) {
+      throw new Error('The price for a slot can\'t exceed 99');
+    }
+ }
 }
