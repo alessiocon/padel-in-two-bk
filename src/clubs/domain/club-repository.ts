@@ -1,3 +1,4 @@
+import { ClubResDto, ClubsResDto } from './../presentation/club.dto.js';
 import type { Club } from './club.js';
 
 export const CLUB_REPOSITORY = Symbol('CLUB_REPOSITORY');
@@ -8,4 +9,7 @@ export interface IClubRepository {
   create(club: Club): Promise<Club>;
   update(club: Club): Promise<Club>;
   delete(id: string): Promise<void>;
+
+  RO_findAll(): Promise<ClubsResDto[]>;
+  RO_findById(id: string): Promise<ClubResDto | null>;
 }

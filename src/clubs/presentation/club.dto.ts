@@ -1,7 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Matches, Max, MaxLength, Min } from 'class-validator';
-import { ClubStatus} from "./../domain/club.js"
-import { Decimal } from '@prisma/client/runtime/client';
+import { ClubCourt, ClubStatus, CourtStatus} from "./../domain/club.js"
 
 export class CreateClubDto {
   @ApiProperty({ example: 'Padel Milano' })
@@ -98,7 +97,19 @@ export class UpdateClubDto {
   status?: ClubStatus;
 }
 
-export class ClubResponseDto {
+export class ClubCourtDto {
+  id: string;
+  clubId: string;
+  name: string;
+  isIndoor: boolean;
+  price: number;
+  status: CourtStatus;
+};
+
+
+
+
+export class ClubsResDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
 
@@ -120,12 +131,59 @@ export class ClubResponseDto {
   @ApiProperty({ type: String, example: '23:00' })
   closingTime: string = '23:00';
 
-  @ApiProperty()
-  createdAt!: Date;
+  @ApiProperty({ type: String, example: 'via aldo roma, n29' })
+  position: string;
 
-  @ApiProperty()
-  updatedAt!: Date;
+  @ApiProperty({ type: Number, example: 2 })
+  racketPrice: number;
 
-  @ApiProperty({ example: 4 })
-  courtCount!: number;
+  @ApiProperty({ type: Number, example: 1 })
+  courtsInDoor: number;
+
+  @ApiProperty({ type: Number, example: 2 })
+  courtsOutDoor: number;
+
+  @ApiProperty({ example: 43.20, default: 0, minimum: 0, maximum: 999})
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'il costo del campo deve essere un numero valido con massimo 2 cifre decimali' })
+  @Min(0)
+  @Max(999)
+  averagePrice: number;
 }
+
+export class ClubResDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty()
+  email: string;
+
+  @ApiProperty({ enum: ClubStatus, example: ClubStatus.ACTIVE })  
+  status: ClubStatus;
+
+  @ApiProperty({ type: Number, example: 90 })
+  slotDurationMinutes: number = 90;
+
+  @ApiProperty({ type: String, example: '08:00' })
+  openingTime: string = '08:00';
+
+  @ApiProperty({ type: String, example: '23:00' })
+  closingTime: string = '23:00';
+
+  @ApiProperty({ type: String, example: 'via aldo roma, n29' })
+  position: string;
+
+  @ApiProperty({ type: Number, example: 2 })
+  racketPrice: number;
+
+  @ApiProperty({type: String, example: "Europe/Rome"})
+  timezone: string
+
+  courtsInDoor: number;
+  courtsOutDoor: number;
+  averagePrice: number;
+
+  @ApiProperty({type: [ClubCourtDto], description: 'Lista dei campi appartenenti al club'})
+  courts: ClubCourtDto[]
+}
+
+

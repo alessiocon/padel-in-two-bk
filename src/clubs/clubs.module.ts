@@ -4,7 +4,6 @@ import {
   DeleteClubUseCase,
   GetClubUseCase,
   ListClubsUseCase,
-  UpdateClubUseCase,
 } from './application/club-use-cases.js';
 import { CLUB_REPOSITORY } from './domain/club-repository.js';
 import { PrismaClubRepository } from './infrastructure/prisma-club-repository.js';
@@ -23,10 +22,9 @@ import { UserModule } from '../user/user.module.js';
     CreateClubUseCase,
     ListClubsUseCase,
     GetClubUseCase,
-    UpdateClubUseCase,
     DeleteClubUseCase,
   ],
   imports: [UserModule],
-  exports: [CreateClubUseCase, ListClubsUseCase, GetClubUseCase, UpdateClubUseCase, DeleteClubUseCase, PrismaClubRepository],
+  exports: [CreateClubUseCase, ListClubsUseCase, GetClubUseCase, DeleteClubUseCase, PrismaClubRepository],
 })
 export class ClubsModule {}

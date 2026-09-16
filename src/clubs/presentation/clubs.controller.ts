@@ -26,11 +26,10 @@ import {
   DeleteClubUseCase,
   GetClubUseCase,
   ListClubsUseCase,
-  UpdateClubUseCase,
 } from '../application/club-use-cases.js';
 import { ClubConflictError, ClubNotFoundError } from '../domain/club-errors.js';
 import { Club } from '../domain/club.js';
-import { CreateClubDto, ClubResponseDto, UpdateClubDto } from './club.dto.js';
+import { CreateClubDto, ClubsResDto, UpdateClubDto, ClubResDto } from './club.dto.js';
 import { Auth } from '../../auth/infrastructure/decorators/auth.decorator.js';
 
 @ApiTags('clubs')
@@ -47,19 +46,19 @@ export class ClubsController {
 
   @Get()
   @ApiOperation({ summary: 'List clubs' })
-  @ApiOkResponse({ type: ClubResponseDto, isArray: true })
-  async findAll(): Promise<ClubResponseDto[]> {
-    return (await this.listClubs.execute()).map((club) => this.toResponse(club));
+  @ApiOkResponse({ type: ClubsResDto, isArray: true })
+  async findAll(): Promise<ClubsResDto[]> {
+    return await this.listClubs.execute();
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a club by id' })
-  @ApiOkResponse({ type: ClubResponseDto })
+  @ApiOkResponse({ type: ClubsResDto })
   @ApiBadRequestResponse({ description: 'Invalid UUID' })
   @ApiNotFoundResponse({ description: 'Club not found' })
-  async findOne(@Param('id', new ParseUUIDPipe()) id: string): Promise<ClubResponseDto> {
+  async findOne(@Param('id', new ParseUUIDPipe()) id: string): Promise<ClubResDto> {
     try {
-      return this.toResponse(await this.getClub.execute(id));
+      return await this.getClub.execute(id);
     } catch (error) {
       throw this.toHttpError(error);
     }
@@ -69,10 +68,10 @@ export class ClubsController {
   @Auth()
   @ApiOperation({ summary: 'Create a club' })
   @ApiBody({ type: CreateClubDto })
-  @ApiCreatedResponse({ type: ClubResponseDto })
+  @ApiCreatedResponse({ type: ClubsResDto })
   @ApiBadRequestResponse({ description: 'Invalid club data' })
   @ApiConflictResponse({ description: 'Club name already exists' })
-  async create(@Body() body: CreateClubDto): Promise<ClubResponseDto> {
+  async create(@Body() body: CreateClubDto): Promise<ClubsResDto> {
     try {
       return this.toResponse(await this.createClub.execute({
         ownerId: body.ownerId,
@@ -125,8 +124,24 @@ export class ClubsController {
   //   }
   // }
 
-  private toResponse(club: Club): ClubResponseDto {
-    return { ...club.toPrimitives(), courtCount: club.courts.length };
+  private toResponse(club: Club): ClubsResDto {
+    var courtsInDoor = 0;
+    var courtsOutDoor = 0;
+    var averagePrice = 0;
+
+    club.courts.forEach(court => {
+      court.isIndoor ? courtsInDoor += 1 : courtsOutDoor += 1   
+      averagePrice += court.price;
+    });
+
+    averagePrice /= (courtsInDoor + courtsOutDoor)
+
+    var { courts, updatedAt, createdAt, timezone, ownerId, ...prop} = club.toPrimitives();
+    return { 
+      ...prop, 
+      courtsInDoor: courtsInDoor,
+      courtsOutDoor: courtsOutDoor,
+      averagePrice: averagePrice  };
   }
 
   private toHttpError(error: unknown): Error {

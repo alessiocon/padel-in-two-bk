@@ -7,7 +7,8 @@ export type AppEnv = {
   port: number;
   databaseUrl: string;
   jwtSecret: string;
-  jwtExpiresIn: number;
+  jwtExpiresIn: string;
+  cookieExpiresIn: number;
 };
 
 const normalizeNodeEnv = (value: string | undefined): NodeEnv => {
@@ -36,17 +37,22 @@ export function getEnv(): AppEnv {
     throw new Error('Missing required env: JWT_SECRET');
   }
 
-  const jwtExpiresIn = Number(process.env.JWT_EXPIRES_IN) || 3600; // Default to 1 hour if not provided
+  const jwtExpiresIn = process.env.JWT_EXPIRES_IN || "1h"; // Default to 1 hour if not provided
   if (!jwtExpiresIn) {
     throw new Error('Missing required env: JWT_EXPIRES_IN');
   }
 
+  const cookieExpiresIn : number = Number(process.env.COOKIE_EXPIRES_IN) ?? 86400000;
+  if (!cookieExpiresIn) {
+    throw new Error('Missing required env: COOKIE_EXPIRES_IN');
+  }
   
   return {
     nodeEnv,
     port: portValue,
     databaseUrl,
     jwtSecret,
-    jwtExpiresIn
+    jwtExpiresIn,
+    cookieExpiresIn: cookieExpiresIn
   };
 }

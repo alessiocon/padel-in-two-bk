@@ -5,6 +5,7 @@ import { UserRole } from './../../user/domain/user.entity.js';
 import { CLUB_REPOSITORY, type IClubRepository } from '../domain/club-repository.js';
 import { USER_REPOSITORY, type IUserRepository } from '../../user/domain/user.repository.interface.js';
 import { CLOCK_SERVICE, type IClockService } from '../../service/interface/IClockService.js';
+import { ClubResDto, ClubsResDto } from './../presentation/club.dto.js';
 
 
 
@@ -75,8 +76,8 @@ export class CreateClubUseCase {
 export class ListClubsUseCase {
   constructor(@Inject(CLUB_REPOSITORY) private readonly clubs: IClubRepository) {}
 
-  async execute(): Promise<Club[]> {
-    return await this.clubs.findAll();
+  async execute(): Promise<ClubsResDto[]> {
+    return await this.clubs.RO_findAll();
   }
 }
 
@@ -84,8 +85,8 @@ export class ListClubsUseCase {
 export class GetClubUseCase {
   constructor(@Inject(CLUB_REPOSITORY) private readonly clubs: IClubRepository) {}
 
-  async execute(id: string): Promise<Club> {
-    const club = await this.clubs.findById(id);
+  async execute(id: string): Promise<ClubResDto> {
+    const club = await this.clubs.RO_findById(id);
     if (!club) {
       throw new ClubNotFoundError(id);
     }
@@ -93,28 +94,28 @@ export class GetClubUseCase {
   }
 }
 
-@Injectable()
-export class UpdateClubUseCase {
-  constructor(@Inject(CLUB_REPOSITORY) private readonly clubs: IClubRepository) {}
+// @Injectable()
+// export class UpdateClubUseCase {
+//   constructor(@Inject(CLUB_REPOSITORY) private readonly clubs: IClubRepository) {}
 
-  async execute(command: UpdateClubCommand): Promise<Club> {
-    const club = await new GetClubUseCase(this.clubs).execute(command.id);
+//   async execute(command: UpdateClubCommand): Promise<Club> {
+//     const club = await new GetClubUseCase(this.clubs).execute(command.id);
 
-    if (command.name !== undefined) {
-      club.rename(command.name);
-    }
-    if (command.email !== undefined) {
-      club.changeEmail(command.email);
-    }
-    if (command.status === 'ACTIVE') {
-      club.activate();
-    } else if (command.status === 'INACTIVE') {
-      club.deactivate();
-    }
+//     if (command.name !== undefined) {
+//       club.rename(command.name);
+//     }
+//     if (command.email !== undefined) {
+//       club.changeEmail(command.email);
+//     }
+//     if (command.status === 'ACTIVE') {
+//       club.activate();
+//     } else if (command.status === 'INACTIVE') {
+//       club.deactivate();
+//     }
 
-    return this.clubs.update(club);
-  }
-}
+//     return this.clubs.update(club);
+//   }
+// }
 
 @Injectable()
 export class DeleteClubUseCase {

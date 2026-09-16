@@ -1,14 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
-import { Club, ClubStatus, type ClubProps } from '../domain/club.js';
+import { Club, ClubStatus} from '../domain/club.js';
 import { ClubConflictError, ClubNotFoundError } from '../domain/club-errors.js';
 import type { IClubRepository } from '../domain/club-repository.js';
-import { ClubMapper } from './prisma-club-mapper.js';
+import { clubDetailSelect, ClubMapper, clubSummarySelect } from './prisma-club-mapper.js';
+import { ClubResDto, ClubsResDto } from './../presentation/club.dto.js';
 
 
 @Injectable()
 export class PrismaClubRepository implements IClubRepository {
   constructor(private readonly prisma: PrismaService) {}
+
 
   async findAll(): Promise<Club[]> {
     const records = await this.prisma.club.findMany({ orderBy: { createdAt: 'asc' }, include: { courts: true } });
@@ -68,6 +70,28 @@ export class PrismaClubRepository implements IClubRepository {
       throw error;
     }
   }
+
+  async RO_findAll(): Promise<ClubsResDto[]> {
+    const records = await this.prisma.club.findMany({
+      orderBy: { createdAt: 'asc' },
+      select: clubSummarySelect,
+    });
+
+    return records.map((record) => ClubMapper.toSummaryDto(record));
+  }
+
+
+  async RO_findById(id: string): Promise<ClubResDto | null> {
+    const record = await this.prisma.club.findUnique({
+      where: { id },
+      select: clubDetailSelect,
+    });
+
+    if (!record) return null;
+    return ClubMapper.toDetailDto(record);
+  }
+
+  
 
 
   private throwMappedError(error: unknown, name: string, id?: string): never {

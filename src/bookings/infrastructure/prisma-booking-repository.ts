@@ -3,7 +3,9 @@ import { PrismaService } from '../../database/prisma.service.js';
 import { Booking } from '../domain/booking.js';
 import { BookingConflictError, BookingCourtNotFoundError } from '../domain/booking-errors.js';
 import type { IBookingRepository } from '../domain/booking-repository.js';
-import { BookingMapper } from './prisma-booking-mapper.js';
+import { BookingMapper, bookingSummarySelect } from './prisma-booking-mapper.js';
+import { BookingResDto } from '../presentation/booking.dto.js';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class PrismaBookingRepository implements IBookingRepository {
@@ -100,6 +102,29 @@ export class PrismaBookingRepository implements IBookingRepository {
       }
       throw error;
     }
+  }
+
+
+
+  async RO_FindAllByClubId(clubId: string, dateQuery: string): Promise<BookingResDto[]> {
+    const startOfDay = new Date(`${dateQuery}T00:00:00.000Z`);
+    const endOfDay = new Date(`${dateQuery}T23:59:59.999Z`);
+
+    const whereCondition: Prisma.BookingWhereInput = {
+      clubId,
+      startsAt: {
+        gte: startOfDay,
+        lte: endOfDay,
+      },
+    };
+
+    const records = await this.prisma.booking.findMany({
+      where: whereCondition,
+      select: bookingSummarySelect,
+      orderBy: { startsAt: 'asc' },
+    });
+
+    return records.map((record) => BookingMapper.toResDto(record));
   }
 
   private isOverlapError(error: unknown): boolean {

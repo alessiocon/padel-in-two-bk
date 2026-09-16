@@ -10,6 +10,7 @@ export interface UserProps {
   passwordHash: string;
   firstName: string;
   lastName: string;
+  username: string;
   role: UserRole;
   createdAt: Date;
   updatedAt: Date;
@@ -17,11 +18,7 @@ export interface UserProps {
 }
 
 // Tipo specifico per i dati richiesti alla creazione
-export type CreateUserProps = Pick<UserProps,
-  'email' | 'passwordHash' | 'firstName' | 'lastName' | 'createdAt'> & 
-  {
-  role?: UserRole;
-  };
+export type CreateUserProps = Omit<UserProps, 'id' | 'updatedAt' | 'deleteAt' | 'role'>;
 
 
 export class User {
@@ -33,6 +30,7 @@ export class User {
   get passwordHash(): string { return this.props.passwordHash; }
   get firstName(): string { return this.props.firstName; }
   get lastName(): string { return this.props.lastName; }
+  get username(): string { return this.props.username; }
   get createdAt(): Date { return this.props.createdAt; }
   get updatedAt(): Date { return this.props.updatedAt; }
   get role(): UserRole { return this.props.role; }
@@ -44,7 +42,7 @@ export class User {
     return new User({
       ...props,
       id: crypto.randomUUID(),
-      role: props.role ?? UserRole.PLAYER,
+      role: UserRole.PLAYER,
       updatedAt: props.createdAt,
       deleteAt: null,
     });

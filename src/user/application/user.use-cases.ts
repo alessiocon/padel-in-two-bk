@@ -2,7 +2,7 @@ import { Injectable, ConflictException, Inject } from '@nestjs/common';
 import { type IUserRepository, USER_REPOSITORY} from '../domain/user.repository.interface.js';
 import { CreateUserDto } from '../presentation/user.dto.js';
 import { PasswordHasher } from '../infrastructure/password.hasher.js';
-import { User, UserRole } from '../domain/user.entity.js';
+import { User } from '../domain/user.entity.js';
 import { UserNotFoundError } from '../domain/user-errors.js';
 import { CLOCK_SERVICE, type IClockService } from '../../service/interface/IClockService.js';
 
@@ -28,6 +28,7 @@ export class CreateUserUseCase {
         passwordHash: passwordHash,
         firstName: dto.firstName,
         lastName: dto.lastName,
+        username: dto.username,
         createdAt: timeNow
     }))
   }

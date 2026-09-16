@@ -1,5 +1,6 @@
 import { Module , Global} from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import type { StringValue } from 'ms';
 import { PassportModule } from '@nestjs/passport';
 import { UserModule } from '../user/user.module.js';
 import { AuthController } from './presentation/auth.controller.js';
@@ -21,7 +22,7 @@ import { ENV_CONFIG, type AppEnv } from './../config/env.js'
       useFactory: (env: AppEnv) => ({
         secret: env.jwtSecret,
         signOptions: {
-          expiresIn: env.jwtExpiresIn || '1d',
+          expiresIn: (env.jwtExpiresIn as StringValue) || '1h',
         },
       }),
     }),

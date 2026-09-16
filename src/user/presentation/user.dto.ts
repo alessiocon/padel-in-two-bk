@@ -1,46 +1,53 @@
-import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '../domain/user.entity.js';
 
 export class CreateUserDto {
-  @ApiPropertyOptional({ example: "john.doe@example.com" })
+  @ApiProperty({ example: "john.doe@example.com", required: true })
   @IsEmail()
-  email!: string;
+  email: string;
 
-  @ApiPropertyOptional({ example: "password123!" })
+  @ApiProperty({ example: "password123!", required: true })
   @IsString()
   @MinLength(8)
-  password!: string;
+  password: string;
 
-  @ApiPropertyOptional({ example: "John" })
+  @ApiProperty({ example: "John", required: true })
   @IsString()
-  firstName!: string;
+  @MinLength(3)
+  @MaxLength(16)
+  firstName: string;
 
-  @ApiPropertyOptional({ example: "Doe" })
+  @ApiProperty({ example: "Doe", required: true })
   @IsString()
-  lastName!: string;
+  @MinLength(3)
+  @MaxLength(16)
+  lastName: string;
+
+  @ApiProperty({ example: "padJhon", required: true })
+  @IsString()
+  @MinLength(3)
+  @MaxLength(16)
+  username: string;
 }
 
 export class UserResponseDto{
   @ApiProperty({ example: "123e4567-e89b-12d3-a456-426614174000" })
   @IsString()
-  id!: string;
+  id: string;
 
   @ApiProperty({ example: "john.doe@example.com" })
-  email!: string;
+  email: string;
 
   @ApiProperty({ example: "John" })
-  firstName!: string;
+  firstName: string;
 
   @ApiProperty({ example: "Doe" })
-  lastName!: string;
+  lastName: string;
+
+  @ApiProperty({ example: "padJhon"})
+  username: string;
 
   @ApiProperty({ example: "User" })
-  role!: UserRole;
-
-  @ApiProperty({ example: "2023-01-01T00:00:00.000Z" })
-  createdAt!: Date;
-
-  @ApiProperty({ example: "2023-01-01T00:00:00.000Z" })
-  updatedAt!: Date;
+  role: UserRole;
 }

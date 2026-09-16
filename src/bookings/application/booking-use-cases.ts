@@ -4,6 +4,8 @@ import { BookingNotFoundError } from '../domain/booking-errors.js';
 import { BOOKING_REPOSITORY, type IBookingRepository } from '../domain/booking-repository.js';
 import { CLUB_REPOSITORY, type IClubRepository } from '../../clubs/domain/club-repository.js';
 import { CLOCK_SERVICE, type IClockService } from '../../service/interface/IClockService.js';
+import { BookingResDto } from '../presentation/booking.dto.js';
+import { BookingMapper } from '../infrastructure/prisma-booking-mapper.js';
 
 
 export type CreateBookingInput = {
@@ -30,7 +32,7 @@ export class CreateBookingUseCase {
     @Inject(BOOKING_REPOSITORY) private readonly bookingRepository: IBookingRepository,
     @Inject(CLUB_REPOSITORY) private readonly clubRepository: IClubRepository
   ) {}
-  async execute(input: CreateBookingInput): Promise<Booking> {
+  async execute(input: CreateBookingInput): Promise<BookingResDto> {
 
     const club = await this.clubRepository.findById(input.clubId);
     if (!club) {
@@ -56,16 +58,20 @@ export class CreateBookingUseCase {
       throw new ForbiddenException('The requested time slot is already booked.');
     }
 
-    var dateNew = this.clock.now();
-    return await this.bookingRepository.create(Booking.create({
+    var now = this.clock.now();
+
+    const bookingEntity = Booking.create({
       clubId: input.clubId,
       courtId: input.courtId,
       userId: input.userId,
       description: input.description,
       startsAt: startAtUTC,
       endsAt: endsAtUTC,
-      createdAt: dateNew
-    }));
+      createdAt: now,
+    });
+
+    const savedBooking = await this.bookingRepository.create(bookingEntity);
+    return BookingMapper.toResDtoFromDomain(savedBooking);
   }
 }
 
@@ -86,9 +92,8 @@ export class GetBookingUseCase {
 export class GetAllBookingsClubUseCase {
   constructor(@Inject(BOOKING_REPOSITORY) private readonly repository: IBookingRepository) {}
 
-  async execute(clubId: string, query: string): Promise<Booking[]> {
-    const bookings = await this.repository.findAllByClubId(clubId, query);
-    return bookings;
+  async execute(clubId: string, query: string): Promise<BookingResDto[]> {
+    return await this.repository.RO_FindAllByClubId(clubId, query);
   }
 }
 

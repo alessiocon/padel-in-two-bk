@@ -5,6 +5,7 @@ import { PasswordHasher } from '../../user/infrastructure/password.hasher.js';
 import { LoginDto } from '../presentation/auth.dto.js';
 import { JwtPayload } from '../domain/jwt-payload.interface.js';
 import { AuthTokens } from './../domain/tokens.interface.js';
+import { User } from '../../user/domain/user.entity.js';
 
 
 @Injectable()
@@ -37,10 +38,13 @@ export class LoginUseCase {
     private readonly jwtService: JwtService,
   ) {}
 
-  async execute(user: any): Promise<AuthTokens> {
+  async execute(user: User): Promise<AuthTokens> {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      username: user.username,
       role: user.role,
     };
 
@@ -51,6 +55,7 @@ export class LoginUseCase {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
+        username: user.username,
         role: user.role,
       },
     };

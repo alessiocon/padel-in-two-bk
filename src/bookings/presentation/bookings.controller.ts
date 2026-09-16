@@ -25,7 +25,7 @@ import {
 import { CreateBookingUseCase, GetBookingUseCase, GetAllBookingsClubUseCase, ChangeBooking } from '../application/booking-use-cases.js';
 import { BookingConflictError, BookingCourtNotFoundError, BookingNotFoundError } from '../domain/booking-errors.js';
 import { Booking, BookingStatus } from '../domain/booking.js';
-import { BookingResponseDto, CreateBookingDto, UpdateBookingDto } from './booking.dto.js';
+import { BookingResponseDto, BookingResDto, CreateBookingDto, UpdateBookingDto } from './booking.dto.js';
 import { Auth } from '../../auth/infrastructure/decorators/auth.decorator.js';
 
 @ApiTags('bookings')
@@ -41,25 +41,22 @@ export class BookingsController {
   @Post()
   @Auth()
   @ApiOperation({ summary: 'Create a booking' })
-  @ApiCreatedResponse({ type: BookingResponseDto })
+  @ApiCreatedResponse({ type: BookingResDto })
   @ApiBadRequestResponse({ description: 'Invalid booking or court association' })
   @ApiConflictResponse({ description: 'Court is already booked for the requested interval' })
   async create(
     @Param('clubId', new ParseUUIDPipe()) clubId: string,
     @Body() body: CreateBookingDto,
     @Request() req: any
-  ): Promise<BookingResponseDto> {
+  ): Promise<BookingResDto> {
     try {
-      const booking = await this.createBooking.execute({
-        clubId,
-        courtId: body.courtId,
-        userId: req.user.userId,
-        description: body.description,
-        startsAt: body.startsAt,
-        slots: body.slots,
+      const booking = await this.createBooking.execute({ ...body,
+        clubId: clubId,
+        userId: req.user.id,
         status: BookingStatus.PENDING
       });
-      return this.toResponse(booking);
+      return booking;
+
     } catch (error) {
       throw this.toHttpError(error);
     }
@@ -82,16 +79,16 @@ export class BookingsController {
 
   @Get()
   @ApiOperation({ summary: 'Get bookings for a club' })
-  @ApiOkResponse({ type: [BookingResponseDto] })
+  @ApiOkResponse({ type: [BookingResDto] })
   @ApiNotFoundResponse({ description: 'Booking not found' })
   async findAllByClubId(
     @Param('clubId', new ParseUUIDPipe()) clubId: string,
     @Query('date') date?: string
-  ): Promise<BookingResponseDto[]> {
+  ): Promise<BookingResDto[]> {
     try {
       date ??= new Date().toISOString().slice(0, 10);
-      var bookings = await this.GetAllBookingsClub.execute(clubId , date );
-      return bookings.map((booking) => this.toResponse(booking));
+      return  await this.GetAllBookingsClub.execute(clubId , date );
+
     } catch (error) {
       throw this.toHttpError(error);
     }

@@ -34,7 +34,7 @@ export class UserController {
   @ApiOperation({ summary: 'Get user profile' })
   @ApiCreatedResponse({ type: Boolean, description: 'Profile retrieved successfully' }) 
   @ApiBadRequestResponse({ description: 'Invalid request' })
-  async getProfile(@Request() req: any) {
+  async getProfile(@Request() req: any) : Promise<UserResponseDto> {
     return req.user;
   }
 

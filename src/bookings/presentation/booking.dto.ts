@@ -19,12 +19,11 @@ export class CreateBookingDto {
 
   @ApiProperty({ format: 'date-time' })
   @IsDateString()
-  startsAt!: string;
+  startsAt: string;
 
   @ApiProperty({ type: Number, description: 'Number of slots to book (1-2)' })
-  @IsOptional()
   @IsIn([1, 2])
-  slots?: number; // Optional array of slots, can be used for future extensions
+  slots: number; // Optional array of slots, can be used for future extensions
 }
 
 
@@ -64,4 +63,13 @@ export class BookingResponseDto {
 
   @ApiProperty({ format: 'date-time' })
   updatedAt!: Date;
+}
+export class BookingResDto {
+    id: string;
+    courtId: string;
+    status: BookingStatus;
+    clubId: string;
+    description: string;
+    startsAt: string;
+    endsAt: string;
 }

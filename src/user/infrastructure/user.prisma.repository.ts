@@ -18,13 +18,14 @@ export class UserPrismaRepository implements IUserRepository {
     return raw ? this.toDomain(raw) : null;
   }
 
-  async create(data: { email: string; passwordHash: string; firstName: string; lastName: string }): Promise<User> {
+  async create(data: { email: string; passwordHash: string; firstName: string; lastName: string; username: string }): Promise<User> {
     const created = await this.prisma.user.create({
       data: {
         email: data.email,
         passwordHash: data.passwordHash,
         firstName: data.firstName,
         lastName: data.lastName,
+        username: data.username
       },
     });
     return this.toDomain(created);
@@ -38,6 +39,7 @@ export class UserPrismaRepository implements IUserRepository {
       passwordHash: record.passwordHash,
       firstName: record.firstName,
       lastName: record.lastName,
+      username: record.username,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
       role: record.role as unknown as UserRole,
