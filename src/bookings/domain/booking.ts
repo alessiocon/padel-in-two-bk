@@ -16,7 +16,8 @@ export type BookingProps = {
 };
 
 export type UpdateBookingProps = {
-  status: BookingStatus
+  status?: BookingStatus,
+  description?: string
 };
 
 export class Booking {
@@ -71,7 +72,8 @@ export class Booking {
    
     const updatedProps: BookingProps = {
       ...this.props,
-      status: changes.status,
+      status: changes.status || this.status,
+      description: changes.description || this.description,
       updatedAt: new Date(),
     };
 

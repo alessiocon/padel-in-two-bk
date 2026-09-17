@@ -73,3 +73,16 @@ export class BookingResDto {
     startsAt: string;
     endsAt: string;
 }
+
+export class BookingUserResDto {
+    id: string;
+    courtId: string;
+    clubId: string;
+    courtName: string;
+    position: string;
+    status: BookingStatus;
+    description: string;
+    startsAt: string;
+    endsAt: string;
+    isIndoor: boolean;
+}

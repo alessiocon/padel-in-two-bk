@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
-import { Booking } from '../domain/booking.js';
+import { Booking, BookingStatus } from '../domain/booking.js';
 import { BookingConflictError, BookingCourtNotFoundError } from '../domain/booking-errors.js';
 import type { IBookingRepository } from '../domain/booking-repository.js';
-import { BookingMapper, bookingSummarySelect } from './prisma-booking-mapper.js';
-import { BookingResDto } from '../presentation/booking.dto.js';
+import { BookingMapper, bookingSummarySelect, bookingUserSummarySelect } from './prisma-booking-mapper.js';
+import { BookingResDto, BookingUserResDto } from '../presentation/booking.dto.js';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -43,8 +43,8 @@ export class PrismaBookingRepository implements IBookingRepository {
     }
   }
 
-  async findById(id: string, clubId: string): Promise<Booking | null> {
-    const record = await this.prisma.booking.findFirst({ where: { id, clubId } });
+  async findById(id: string): Promise<Booking | null> {
+    const record = await this.prisma.booking.findFirst({ where: { id } });
     return record ? BookingMapper.toDomain(record) : null;
   }
 
@@ -104,6 +104,42 @@ export class PrismaBookingRepository implements IBookingRepository {
     }
   }
 
+  async delete(bookingId: string): Promise<boolean> {
+    try {
+      const isDeleted = await this.prisma.booking.delete({
+        where: { id: bookingId }
+      });
+
+      return isDeleted ? true : false;
+    } catch (error) {
+      // Intercetta eventuali violazioni dei vincoli di sovrapposizione a livello DB (Exclusion Constraint / Trigger)
+      if (this.isOverlapError(error)) {
+        throw new BookingConflictError();
+      }
+      throw error;
+    }
+  }
+
+
+  async countUserBookingsInWeek(
+    clubId: string,
+    userId: string,
+    from: Date,
+    to: Date
+  ): Promise<number> {
+    return this.prisma.booking.count({
+      where: {
+        clubId: clubId,
+        userId: userId,
+        status: { notIn: ["CANCELLED"] },
+        startsAt: {
+          gte: from,
+          lte: to,
+        },
+      },
+    });
+  }
+
 
 
   async RO_FindAllByClubId(clubId: string, dateQuery: string): Promise<BookingResDto[]> {
@@ -125,6 +161,29 @@ export class PrismaBookingRepository implements IBookingRepository {
     });
 
     return records.map((record) => BookingMapper.toResDto(record));
+  }
+
+
+
+  async RO_FindAllByUserId(userId: string/*, dateQuery: string*/): Promise<BookingUserResDto[]> {
+    // const startOfDay = new Date(`${dateQuery}T00:00:00.000Z`);
+    // const endOfDay = new Date(`${dateQuery}T23:59:59.999Z`);
+
+    const whereCondition: Prisma.BookingWhereInput = {
+      userId
+      // startsAt: {
+      //   gte: startOfDay,
+      //   lte: endOfDay,
+      // },
+    };
+
+    const records = await this.prisma.booking.findMany({
+      where: whereCondition,
+      select: bookingUserSummarySelect,
+      orderBy: { startsAt: 'asc' },
+    });
+
+    return records.map((record) => BookingMapper.toResUserDto(record));
   }
 
   private isOverlapError(error: unknown): boolean {

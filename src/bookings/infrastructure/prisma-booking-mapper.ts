@@ -4,7 +4,7 @@ import {
   BookingStatus as PrismaBookingStatus,
 } from '@prisma/client';
 import { Booking, BookingStatus, type BookingProps } from '../domain/booking.js';
-import { BookingResDto } from '../presentation/booking.dto.js';
+import { BookingResDto, BookingUserResDto } from '../presentation/booking.dto.js';
 
 // ==========================================
 // PRISMA SELECTION TYPES (PER READ MODELS)
@@ -23,6 +23,27 @@ export const bookingSummarySelect = Prisma.validator<Prisma.BookingSelect>()({
 
 export type PrismaBookingSummarySelect = Prisma.BookingGetPayload<{
   select: typeof bookingSummarySelect;
+}>;
+
+export const bookingUserSummarySelect = Prisma.validator<Prisma.BookingSelect>()({
+  id: true,
+  courtId: true,
+  status: true,
+  clubId: true,
+  description: true,
+  startsAt: true,
+  endsAt: true,
+  userId: true,
+  club: {
+    select: {position: true}
+  },
+  court: {
+    select: {isIndoor: true, name: true}
+  }
+});
+
+export type PrismaBookingUserSummarySelect = Prisma.BookingGetPayload<{
+  select: typeof bookingUserSummarySelect;
 }>;
 
 // ==========================================
@@ -109,7 +130,22 @@ export abstract class BookingMapper {
     };
   }
 
-    static toResDtoFromDomain(booking: Booking): BookingResDto {
+  static toResUserDto(record: PrismaBookingUserSummarySelect): BookingUserResDto {
+    return {
+      id: record.id,
+      courtId: record.courtId,
+      status: this.PRISMA_TO_DOMAIN_BOOKING_STATUS[record.status],
+      clubId: record.clubId,
+      description: record.description ?? '',
+      startsAt: record.startsAt.toISOString(),
+      endsAt: record.endsAt.toISOString(),
+      courtName: record.court.name,
+      isIndoor: record.court.isIndoor,
+      position: record.club.position
+    };
+  }
+
+  static toResDtoFromDomain(booking: Booking): BookingResDto {
     const primitives = booking.toPrimitives();
     return {
       id: primitives.id,

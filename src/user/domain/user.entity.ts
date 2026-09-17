@@ -15,6 +15,7 @@ export interface UserProps {
   createdAt: Date;
   updatedAt: Date;
   deleteAt: Date | null;
+  
 }
 
 // Tipo specifico per i dati richiesti alla creazione

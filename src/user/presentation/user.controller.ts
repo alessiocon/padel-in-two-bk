@@ -26,7 +26,8 @@ export class UserController {
   @ApiBadRequestResponse({ description: 'Invalid Data' })
   @HttpCode(HttpStatus.CREATED)
   async register(@Body() dto: CreateUserDto) {
-    return await this.createUser.execute(dto);
+    const userDto : CreateUserDto = {...dto, email: dto.email.toLowerCase()} 
+    return await this.createUser.execute(userDto);
   }
 
   @Auth(/*UserRole.CLUB_OWNER*/)

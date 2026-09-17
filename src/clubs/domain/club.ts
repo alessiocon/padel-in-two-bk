@@ -1,4 +1,3 @@
-import { Court } from '@prisma/client';
 import { DateTime } from 'luxon';
 
 export enum ClubStatus { ACTIVE = "active", INACTIVE = "inactive" }

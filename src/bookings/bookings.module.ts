@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ChangeBooking, CreateBookingUseCase, GetAllBookingsClubUseCase, GetBookingUseCase } from './application/booking-use-cases.js';
+import { ChangeBooking, CreateBookingUseCase, DeleteBookingUseCase, GetAllBookingsClubUseCase, GetAllBookingsUserUseCase, GetBookingUseCase } from './application/booking-use-cases.js';
 import { BOOKING_REPOSITORY } from './domain/booking-repository.js';
 import { PrismaBookingRepository } from './infrastructure/prisma-booking-repository.js';
 import { BookingsController } from './presentation/bookings.controller.js';
@@ -17,7 +17,9 @@ import { ClubsModule } from '../clubs/clubs.module.js';
     CreateBookingUseCase,
     GetBookingUseCase,
     GetAllBookingsClubUseCase,
-    ChangeBooking
+    GetAllBookingsUserUseCase,
+    ChangeBooking,
+    DeleteBookingUseCase
   ],
   exports: [CreateBookingUseCase, GetBookingUseCase, GetAllBookingsClubUseCase],
 })
