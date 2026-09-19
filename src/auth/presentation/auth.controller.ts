@@ -20,12 +20,13 @@ export class AuthController {
   @ApiBadRequestResponse({ description: 'Invalid login data' })
   @HttpCode(HttpStatus.OK)
   async login(@Request() req: any, @Response({ passthrough: true }) res: any) : Promise<AuthUserResDto> {
-    var response = await this.loginUseCase.execute(req.user)
+    let response = await this.loginUseCase.execute(req.user)
 
+    let isProduction = this.env.nodeEnv === "production"
     res.cookie('jwt', response.accessToken, {
       httpOnly: true, // Non accessibile da JavaScript nel browser (sicurezza anti-XSS)
-      secure: this.env.nodeEnv === "production",  // Dev'essere FALSE in locale (HTTP). Metti TRUE solo in produzione (HTTPS)
-      sameSite: 'lax', // Permette l'invio tra porte diverse su localhost (3001 -> 3000)
+      secure: isProduction,  // Dev'essere FALSE in locale (HTTP). Metti TRUE solo in produzione (HTTPS)
+      sameSite: isProduction ? 'none' : 'lax', // Permette l'invio tra porte diverse su localhost (3001 -> 3000)
       path: '/',
       maxAge: this.env.cookieExpiresIn
     });
