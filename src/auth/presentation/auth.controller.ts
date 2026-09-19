@@ -49,10 +49,11 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Logout effettuato con successo' })
   async logout(@Request() req: any, @Response({ passthrough: true }) res: any) {
   
+    let isProduction = this.env.nodeEnv === "production"
     res.cookie('jwt', "", {
-      httpOnly: true, // Non accessibile da JavaScript nel browser (sicurezza anti-XSS)
-      secure: this.env.nodeEnv === "production",  // Dev'essere FALSE in locale (HTTP). Metti TRUE solo in produzione (HTTPS)
-      sameSite: 'lax', // Permette l'invio tra porte diverse su localhost (3001 -> 3000)
+      httpOnly: true,
+      secure: isProduction,  
+      sameSite: isProduction ? 'none' : 'lax',
       path: '/',
       maxAge: -1
     });
