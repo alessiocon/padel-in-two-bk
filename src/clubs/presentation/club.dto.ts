@@ -19,17 +19,15 @@ export class CreateClubDto {
   @IsNotEmpty()
   ownerId!: string;
 
-  @ApiPropertyOptional({ example: 1, default: 1, minimum: 0, maximum: 10 })
+  @ApiPropertyOptional({ example: 0, default: 0, minimum: 0, maximum: 10 })
   @IsOptional()
   @IsInt()
-  @IsPositive()
-  courtInDoor: number = 1;
+  courtInDoor: number = 0;
 
-  @ApiPropertyOptional({ example: 1, default: 1, minimum: 0, maximum: 10})
+  @ApiPropertyOptional({ example: 0, default: 0, minimum: 0, maximum: 10})
   @IsOptional()
   @IsInt()
-  @IsPositive()
-  courtOutDoor: number = 1;
+  courtOutDoor: number = 0;
 
   @ApiProperty({ example: 'Via dei mille, 22, Napoli' })
   @IsString()
@@ -113,6 +111,8 @@ export class ClubsResDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
 
+  ownerId: string;
+
   @ApiProperty()
   name!: string;
 
@@ -153,6 +153,9 @@ export class ClubsResDto {
 export class ClubResDto {
   @ApiProperty({ format: 'uuid' })
   id: string;
+
+  @ApiProperty({ format: 'uuid' })
+  ownerId: string;
 
   @ApiProperty()
   email: string;

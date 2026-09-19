@@ -1,7 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsDateString, IsIn, IsUUID, IsOptional, MaxLength } from 'class-validator';
 import { BookingStatus } from '../domain/booking.js';
-import { Optional } from '@nestjs/common';
 
 export class CreateBookingDto {
   @ApiProperty({ format: 'uuid' })
@@ -32,6 +31,9 @@ export class UpdateBookingDto {
   @ApiProperty({ enum: BookingStatus, example: BookingStatus.RESERVED })
   @IsOptional()
   status: BookingStatus;
+
+  @ApiProperty({ type: String })
+  clubId: string;
 }
 
 

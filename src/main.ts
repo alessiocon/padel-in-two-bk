@@ -22,6 +22,8 @@ async function bootstrap() {
   //   }),
   // );
   app.setGlobalPrefix('api');
+  app.use(cookieParser());
+
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('PadelInTwo API')
@@ -51,7 +53,6 @@ async function bootstrap() {
       allowedHeaders: ['Content-Type', 'Authorization'],
     });
     app.useGlobalPipes(new ValidationPipe());
-    app.use(cookieParser());
 
     
   }

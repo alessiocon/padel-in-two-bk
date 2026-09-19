@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import {
   CreateClubUseCase,
   DeleteClubUseCase,
+  GetClubByManagerUseCase,
   GetClubUseCase,
   ListClubsUseCase,
 } from './application/club-use-cases.js';
@@ -23,6 +24,7 @@ import { UserModule } from '../user/user.module.js';
     ListClubsUseCase,
     GetClubUseCase,
     DeleteClubUseCase,
+    GetClubByManagerUseCase
   ],
   imports: [UserModule],
   exports: [CreateClubUseCase, ListClubsUseCase, GetClubUseCase, DeleteClubUseCase, PrismaClubRepository],

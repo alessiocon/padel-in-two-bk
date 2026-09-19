@@ -74,6 +74,7 @@ export class CreateBookingUseCase {
       startsAt: startAtUTC,
       endsAt: endsAtUTC,
       createdAt: now,
+      status: club.ownerId != input.userId ? BookingStatus.PENDING : BookingStatus.RESERVED 
     });
 
     const savedBooking = await this.bookingRepository.create(bookingEntity);
@@ -197,8 +198,6 @@ export class ChangeBooking {
 
   async execute(input: UpdateBookingInput) {
 
-
-    // 1. Carica la prenotazione dal Repository
     const booking = await this.bookingRepository.findById(input.bookingId);
     if (!booking) {
       throw new NotFoundException(`Booking with ID ${input.bookingId} not found.`);
@@ -220,6 +219,11 @@ export class ChangeBooking {
     booking.updateDetails({
       status: input.status ?? booking.status
     })
+
+    let isOverlapping = await this.bookingRepository.hasOverlappingBooking(booking.courtId, booking.startsAt, booking.endsAt, booking.id);
+    if(isOverlapping){
+      throw new BadRequestException("è presente già una prenotazione a quest'ora per questo campo")
+    }
 
     return await this.bookingRepository.update(booking);
   }

@@ -12,6 +12,7 @@ import { ClubResDto, ClubsResDto } from '../presentation/club.dto.js';
 
 export const clubSummarySelect = Prisma.validator<Prisma.ClubSelect>()({
   id: true,
+  ownerId: true,
   name: true,
   email: true,
   status: true,

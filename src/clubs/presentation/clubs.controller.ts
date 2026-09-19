@@ -9,6 +9,8 @@ import {
   ParseUUIDPipe,
   Post,
   Body,
+  Req,
+  Request,
 } from '@nestjs/common';
 import {
   ApiBody,
@@ -24,6 +26,7 @@ import {
 import {
   CreateClubUseCase,
   DeleteClubUseCase,
+  GetClubByManagerUseCase,
   GetClubUseCase,
   ListClubsUseCase,
 } from '../application/club-use-cases.js';
@@ -31,6 +34,7 @@ import { ClubConflictError, ClubNotFoundError } from '../domain/club-errors.js';
 import { Club } from '../domain/club.js';
 import { CreateClubDto, ClubsResDto, UpdateClubDto, ClubResDto } from './club.dto.js';
 import { Auth } from '../../auth/infrastructure/decorators/auth.decorator.js';
+import { UserRole } from '../../user/domain/user.entity.js';
 
 @ApiTags('clubs')
 @ApiBearerAuth('access-token')
@@ -40,6 +44,7 @@ export class ClubsController {
     private readonly createClub: CreateClubUseCase,
     private readonly listClubs: ListClubsUseCase,
     private readonly getClub: GetClubUseCase,
+    private readonly getClubManager: GetClubByManagerUseCase,
     // private readonly updateClub: UpdateClubUseCase,
     // private readonly deleteClub: DeleteClubUseCase,
   ) {}
@@ -57,6 +62,23 @@ export class ClubsController {
   @ApiBadRequestResponse({ description: 'Invalid UUID' })
   @ApiNotFoundResponse({ description: 'Club not found' })
   async findOne(@Param('id', new ParseUUIDPipe()) id: string): Promise<ClubResDto> {
+    try {4
+      return await this.getClub.execute(id);
+    } catch (error) {
+      throw this.toHttpError(error);
+    }
+  }
+
+  @Get(':id/manager')
+  @Auth(UserRole.CLUB_OWNER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get a club by id for manager' })
+  @ApiOkResponse({ type: ClubsResDto })
+  @ApiBadRequestResponse({ description: 'Invalid UUID' })
+  @ApiNotFoundResponse({ description: 'Club not found' })
+  async findOneByManager(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Request() req: any 
+  ): Promise<ClubResDto> {
     try {
       return await this.getClub.execute(id);
     } catch (error) {
@@ -136,7 +158,7 @@ export class ClubsController {
 
     averagePrice /= (courtsInDoor + courtsOutDoor)
 
-    var { courts, updatedAt, createdAt, timezone, ownerId, ...prop} = club.toPrimitives();
+    var { courts, updatedAt, createdAt, timezone, ...prop} = club.toPrimitives();
     return { 
       ...prop, 
       courtsInDoor: courtsInDoor,

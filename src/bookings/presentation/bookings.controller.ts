@@ -41,7 +41,6 @@ export class BookingsController {
     private readonly DeleteBooking: DeleteBookingUseCase
   ) {}
 
-  //PRENOTAZIONE DELL'utente, quindi userId si prende dall'jwt
   @Post("clubs/:clubId")
   @Auth()
   @ApiOperation({ summary: 'Create a booking' })
@@ -65,7 +64,6 @@ export class BookingsController {
       throw this.toHttpError(error);
     }
   }
-
 
   @Get("clubs/:clubId")
   @ApiOperation({ summary: 'Get bookings for a club' })
@@ -123,20 +121,17 @@ export class BookingsController {
   // @UseGuards(JwtAuthGuard, RolesGuard)
   // @Roles('CLUB_OWNER', 'ADMIN')
   async changeBookingById(
-    @Param('clubId', new ParseUUIDPipe()) clubId: string,
     @Param('id', new ParseUUIDPipe()) bookingId: string,
     @Request() req: any,
     @Body() body: UpdateBookingDto
     // @CurrentUser() owner: User
-  ) {
+  ): Promise<Booking> {
     return await this.ChangeBooking.execute({
-      clubId,
+      clubId: body.clubId,
       bookingId,
       userId: req.user.id,
       status: body.status
-
-    }
-    );
+    });
   }
 
   @Delete(':id')

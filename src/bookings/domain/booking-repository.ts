@@ -7,7 +7,7 @@ export interface IBookingRepository {
   create(booking: Booking): Promise<Booking>;
   findById(id: string): Promise<Booking | null>;
   findAllByClubId(clubId: string, query: string): Promise<Booking[]>;
-  hasOverlappingBooking(courtId: string, startsAt: Date, endsAt: Date): Promise<boolean>;
+  hasOverlappingBooking(courtId: string, startsAt: Date, endsAt: Date, excludeBookingId?: string): Promise<boolean>;
   update(booking: Booking): Promise<Booking>
   delete(bookingId: string): Promise<boolean>
 

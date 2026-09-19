@@ -1,5 +1,5 @@
 import { Club } from '../domain/club.js';
-import { ClubNotFoundError } from '../domain/club-errors.js';
+import { ClubConflictError, ClubNotFoundError } from '../domain/club-errors.js';
 import { Inject, Injectable, NotFoundException, ForbiddenException} from '@nestjs/common';
 import { UserRole } from './../../user/domain/user.entity.js';
 import { CLUB_REPOSITORY, type IClubRepository } from '../domain/club-repository.js';
@@ -89,6 +89,22 @@ export class GetClubUseCase {
     const club = await this.clubs.RO_findById(id);
     if (!club) {
       throw new ClubNotFoundError(id);
+    }
+    return club;
+  }
+}
+
+@Injectable()
+export class GetClubByManagerUseCase {
+  constructor(@Inject(CLUB_REPOSITORY) private readonly clubs: IClubRepository) {}
+
+  async execute(id: string, ownerId: string): Promise<ClubResDto> {
+    const club = await this.clubs.RO_findById(id);
+    if (!club) {
+      throw new ClubNotFoundError(id);
+    }
+    if(club.ownerId !== ownerId){
+       throw new ClubConflictError("Non sei autorizzato ad acccedere a questo club");
     }
     return club;
   }

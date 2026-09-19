@@ -11,9 +11,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     @Inject(ENV_CONFIG) env: AppEnv) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
-        // 1. Cerca il token nell'header Authorization: Bearer <token>
         ExtractJwt.fromAuthHeaderAsBearerToken(),
-        // 2. Se non lo trova nell'header, lo estrae automaticamente dal cookie 'jwt'
         (request: any) => {
           return request?.cookies?.jwt || null;
         },

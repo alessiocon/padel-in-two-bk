@@ -26,7 +26,7 @@ export class Booking {
   }
 
   static create(
-    input: Omit<BookingProps, 'id' | 'status' | 'updatedAt'>,
+    input: Omit<BookingProps, 'id' | 'updatedAt'>,
 
     id = crypto.randomUUID(),
   ): Booking {
@@ -43,7 +43,7 @@ export class Booking {
       description: input.description,
       startsAt: input.startsAt,
       endsAt: input.endsAt,
-      status: BookingStatus.PENDING,
+      status: input.status,
       createdAt: input.createdAt,
       updatedAt:  input.createdAt
     });

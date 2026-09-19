@@ -15,22 +15,32 @@ export class CreateUserUseCase {
   ) {}
 
   async execute(dto: CreateUserDto) : Promise<User> {
-    const existingUser = await this.user.findByEmail(dto.email);
-    if (existingUser) {
-      throw new ConflictException('User with this email already exists');
-    }
-
     const passwordHash = await PasswordHasher.hash(dto.password);
     const timeNow = this.clock.now();
 
-    return await this.user.create(User.create({
+    const newUser = User.create({
         email: dto.email,
         passwordHash: passwordHash,
         firstName: dto.firstName,
         lastName: dto.lastName,
         username: dto.username,
-        createdAt: timeNow
-    }))
+        createdAt: timeNow,
+    })
+
+    try {
+      return await this.user.create(newUser);
+
+    } catch (error: any) {
+      //TODO: il catch così è molto fragile, da sostituire appena si può      
+      if (error?.code === 'P2002') {
+        const targetField : string= error.meta?.driverAdapterError.cause.constraint.index; // Es. ['email'] o ['username']
+        let key = targetField.split("_")[1];
+        throw new ConflictException(`${key} già in uso`);
+      }
+      throw error;
+    }
+
+
   }
 }
 

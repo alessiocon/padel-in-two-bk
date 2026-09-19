@@ -64,11 +64,17 @@ export class PrismaBookingRepository implements IBookingRepository {
     return records.map((record) => BookingMapper.toDomain(record));
   }
 
-  async hasOverlappingBooking(courtId: string, startsAt: Date, endsAt: Date): Promise<boolean> {
+  async hasOverlappingBooking(
+    courtId: string, 
+    startsAt: Date, 
+    endsAt: Date, 
+    excludeBookingId?: string
+  ): Promise<boolean> {
     const count = await this.prisma.booking.count({
       where: {
         courtId,
         status: { in: ['RESERVED', 'PENDING', 'CONFIRMED'] }, // Ignora CANCELLED
+        ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
         AND: [
           { startsAt: { lt: endsAt } },
           { endsAt: { gt: startsAt } },
