@@ -24,11 +24,12 @@ export class AuthController {
 
     let isProduction = this.env.nodeEnv === "production"
     res.cookie('jwt', response.accessToken, {
-      httpOnly: true, // Non accessibile da JavaScript nel browser (sicurezza anti-XSS)
-      secure: isProduction,  // Dev'essere FALSE in locale (HTTP). Metti TRUE solo in produzione (HTTPS)
-      sameSite: isProduction ? 'none' : 'lax', // Permette l'invio tra porte diverse su localhost (3001 -> 3000)
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'lax',
+      domain: isProduction ? '.padelintwo.it' : undefined,
       path: '/',
-      maxAge: this.env.cookieExpiresIn
+      maxAge: this.env.cookieExpiresIn,
     });
 
     return {
@@ -51,11 +52,12 @@ export class AuthController {
   
     let isProduction = this.env.nodeEnv === "production"
     res.cookie('jwt', "", {
-      httpOnly: true,
-      secure: isProduction,  
-      sameSite: isProduction ? 'none' : 'lax',
+      httpOnly: true, 
+      secure: isProduction,
+      sameSite: 'lax',
+      domain: isProduction ? '.padelintwo.it' : undefined,
       path: '/',
-      maxAge: -1
+      maxAge: -1,
     });
     return { message: 'Logout effettuato con successo' };
   }
