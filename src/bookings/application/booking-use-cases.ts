@@ -147,9 +147,11 @@ export class GetAllBookingsUserUseCase {
 export class DeleteBookingUseCase {
   constructor(
     @Inject(BOOKING_REPOSITORY) private readonly repository: IBookingRepository,
+    @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
   ) {}
 
   async execute(bookingId: string, userId: string): Promise<Booking> {
+    const time = this.clock.now();
     const booking = await this.repository.findById(bookingId);
 
     if (booking === null) { throw new NotFoundException("Prenotazione non trovata");}
@@ -166,6 +168,7 @@ export class DeleteBookingUseCase {
           const updateBooking: UpdateBookingProps = {
             status: BookingStatus.CANCELLED,
             description: "Cancellata dall'utente",
+            updateDate: time
           };
 
           booking.updateDetails(updateBooking);
@@ -173,7 +176,7 @@ export class DeleteBookingUseCase {
         } else {
           await this.repository.delete(booking.id);
           // Impostiamo lo stato a CANCELLED in memoria per segnalare al FE che è stata disdetta/rimossa nei tempi
-          booking.updateDetails({ status: BookingStatus.CANCELLED });
+          booking.updateDetails({ status: BookingStatus.CANCELLED, updateDate: time });
         }
 
         break;
@@ -193,11 +196,12 @@ export class DeleteBookingUseCase {
 export class ChangeBooking {
   constructor(
     @Inject(BOOKING_REPOSITORY) private readonly bookingRepository: IBookingRepository,
-    @Inject(CLUB_REPOSITORY) private readonly clubRepository: IClubRepository
+    @Inject(CLUB_REPOSITORY) private readonly clubRepository: IClubRepository,
+    @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
   ) {}
 
   async execute(input: UpdateBookingInput) {
-
+    const time = this.clock.now()
     const booking = await this.bookingRepository.findById(input.bookingId);
     if (!booking) {
       throw new NotFoundException(`Booking with ID ${input.bookingId} not found.`);
@@ -217,7 +221,8 @@ export class ChangeBooking {
     }
     
     booking.updateDetails({
-      status: input.status ?? booking.status
+      status: input.status ?? booking.status,
+      updateDate: time
     })
 
     let isOverlapping = await this.bookingRepository.hasOverlappingBooking(booking.courtId, booking.startsAt, booking.endsAt, booking.id);

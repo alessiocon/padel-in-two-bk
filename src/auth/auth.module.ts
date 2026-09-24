@@ -8,14 +8,16 @@ import { AUTH_USE_CASES } from './application/auth.use-cases.js';
 import { LocalStrategy } from './infrastructure/strategies/local.strategy.js';
 import { JwtStrategy } from './infrastructure/strategies/jwt.strategy.js';
 import { ENV_CONFIG, type AppEnv } from './../config/env.js'
+import { TokenModule } from '../token/token.module.js';
 
 
 
 @Global()
 @Module({
   imports: [
-    UserModule, // Per accedere a USER_REPOSITORY o Use Case dell'utente
+    UserModule,
     PassportModule,
+    TokenModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       inject: [ENV_CONFIG],

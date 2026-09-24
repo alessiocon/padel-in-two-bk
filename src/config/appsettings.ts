@@ -17,6 +17,17 @@ export type AppSettings = {
       max: number;
     };
   };
+  // smtp: {
+  //   host:string,
+  //   port:number,
+  //   secure:boolean,
+  //   user:string,
+  //   pass:string,
+  //   from:string
+  // };
+  client:{
+    host: string
+  }
 };
 
 const resolveConfigFile = (): URL => {

@@ -5,6 +5,8 @@ import { PasswordHasher } from '../infrastructure/password.hasher.js';
 import { User } from '../domain/user.entity.js';
 import { UserNotFoundError } from '../domain/user-errors.js';
 import { CLOCK_SERVICE, type IClockService } from '../../service/interface/IClockService.js';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { userRegisteredEvent } from '../domain/user-events.js';
 
 
 @Injectable()
@@ -12,6 +14,7 @@ export class CreateUserUseCase {
   constructor(
     @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
     @Inject(USER_REPOSITORY) private readonly user : IUserRepository,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async execute(dto: CreateUserDto) : Promise<User> {
@@ -28,7 +31,19 @@ export class CreateUserUseCase {
     })
 
     try {
-      return await this.user.create(newUser);
+      let user = await this.user.create(newUser);
+      const verificationToken = user.id;
+
+      this.eventEmitter.emit('user.registered',
+        new userRegisteredEvent(
+          newUser.email,
+          newUser.firstName,
+          newUser.lastName,
+          verificationToken
+        ),
+      );
+
+      return user;
 
     } catch (error: any) {
       //TODO: il catch così è molto fragile, da sostituire appena si può      
@@ -39,9 +54,18 @@ export class CreateUserUseCase {
       }
       throw error;
     }
-
-
   }
+}
+
+@Injectable()
+export class updateUserUseCase{
+  constructor(
+      @Inject(USER_REPOSITORY) private readonly userRepo : IUserRepository   
+    ) {}
+
+    async execute(user: User) : Promise<User>{
+      return this.userRepo.update(user)
+    }
 }
 
 @Injectable()
@@ -73,8 +97,11 @@ export class GetUserByIdUseCase {
   }
 }
 
+
+
 export const USER_USE_CASES = [
   CreateUserUseCase,
   GetUserByEmailUseCase,
   GetUserByIdUseCase,
+  updateUserUseCase
 ];

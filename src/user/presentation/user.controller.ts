@@ -19,7 +19,6 @@ export class UserController {
     private readonly getUser: GetUserByIdUseCase,
   ) {}
 
-
   @Post()
   @ApiOperation({ summary: 'Create a new user' })
   @ApiOkResponse({ type: String })

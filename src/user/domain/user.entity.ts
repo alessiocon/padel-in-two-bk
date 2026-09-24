@@ -11,19 +11,21 @@ export interface UserProps {
   firstName: string;
   lastName: string;
   username: string;
+  isEmailVerified: boolean;
   role: UserRole;
   createdAt: Date;
   updatedAt: Date;
   deleteAt: Date | null;
   
+  
 }
 
 // Tipo specifico per i dati richiesti alla creazione
-export type CreateUserProps = Omit<UserProps, 'id' | 'updatedAt' | 'deleteAt' | 'role'>;
+export type CreateUserProps = Omit<UserProps, 'id' | 'updatedAt' | 'deleteAt' | 'role'| 'isEmailVerified'>;
 
 
 export class User {
-  constructor(private readonly props: UserProps) {}
+  constructor(private props: UserProps) {}
   private _deletedAt?: Date | null;
 
   get id(): string { return this.props.id; }
@@ -35,6 +37,7 @@ export class User {
   get createdAt(): Date { return this.props.createdAt; }
   get updatedAt(): Date { return this.props.updatedAt; }
   get role(): UserRole { return this.props.role; }
+  get isEmailVerified(): boolean { return this.props.isEmailVerified; }
 
   get isDeleted(): boolean { return !!this._deletedAt;}
 
@@ -46,7 +49,12 @@ export class User {
       role: UserRole.PLAYER,
       updatedAt: props.createdAt,
       deleteAt: null,
+      isEmailVerified: false
     });
+  }
+
+  verifiedEmail(updateAt: Date){
+    this.props ={...this.props, isEmailVerified:true, updatedAt: updateAt}
   }
 
   static reconstitute(props: UserProps): User {
@@ -69,5 +77,21 @@ export class User {
       throw new Error('User is already deleted.');
     }
     return new User({...this.props, deleteAt: new Date()})
+  }
+
+  changePassword(newPasswordHash: string, updatedAt: Date): void {
+    User.validatePasswordHash(newPasswordHash);
+    
+    this.props = {
+      ...this.props,
+      passwordHash: newPasswordHash,
+      updatedAt,
+    };
+  }
+
+  private static validatePasswordHash(passwordHash: string): void {
+    if (!passwordHash || passwordHash.trim().length === 0) {
+      throw new Error('Password hash cannot be blank');
+    }
   }
 }

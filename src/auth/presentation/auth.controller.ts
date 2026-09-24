@@ -1,8 +1,8 @@
-import { Controller, Post, UseGuards, Request, HttpCode, HttpStatus, Get, Response, Inject } from '@nestjs/common';
+import { Controller, Post, UseGuards, Request, HttpCode, HttpStatus, Get, Response, Inject, Param, Query, BadRequestException, Body } from '@nestjs/common';
 import { LocalAuthGuard } from './../infrastructure/guards/local.auth.guard.js';
-import { LoginUseCase } from '../application/auth.use-cases.js';
+import { emailConfirmation, LoginUseCase, resetPassword, sendEmailConfirmation, sendEmailForgotPassword } from '../application/auth.use-cases.js';
 import {ApiOperation, ApiBody, ApiCreatedResponse, ApiBadRequestResponse, ApiResponse} from "@nestjs/swagger"
-import { AuthUserResDto, LoginDto } from './auth.dto.js';
+import { AuthUserResDto, LoginDto, resetPasswordReqDto } from './auth.dto.js';
 import { type AppEnv, ENV_CONFIG } from '../../config/env.js';
 import { Auth } from '../infrastructure/decorators/auth.decorator.js';
 
@@ -10,7 +10,12 @@ import { Auth } from '../infrastructure/decorators/auth.decorator.js';
 export class AuthController {
   constructor(
     @Inject(ENV_CONFIG) private readonly env: AppEnv,
-    private readonly loginUseCase: LoginUseCase) {}
+    private readonly loginUseCase: LoginUseCase,
+    private readonly emailConfirmationUseCase: emailConfirmation,
+    private readonly sendEmailConfirmationUseCase: sendEmailConfirmation,
+    private readonly sendEmailForgotPasseordUseCase: sendEmailForgotPassword,
+    private readonly resetPasswordUseCase: resetPassword
+  ) {}
 
   @UseGuards(LocalAuthGuard)
   @Post('login')
@@ -60,5 +65,55 @@ export class AuthController {
       maxAge: -1,
     });
     return { message: 'Logout effettuato con successo' };
+  }
+
+  @Get('sendemailconfirmation')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'send email confirmation' })
+  @ApiResponse({ status: 200, description: 'Conferma della mail inviata' })
+  async sendEmailConfirmation(
+    @Query('tokenId') tokenId: string,
+  ){
+    if(tokenId === null){
+      throw new BadRequestException("id non valido")
+    }
+    return await this.sendEmailConfirmationUseCase.execute(tokenId);
+  }
+
+
+  @Post('emailconfirmation')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'email confirmation' })
+  @ApiResponse({ status: 200, description: 'Conferma della mail effettuata con successo' })
+  async emailConfirmation(
+    @Query('tokenId') tokenId: string,
+  ){
+    return await this.emailConfirmationUseCase.execute(tokenId);
+  }
+
+
+  @Get('sendemailforgotpassword')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'send email for reset password' })
+  @ApiResponse({ status: 200, description: 'Email per il reset della Password inviata' })
+  async sendEmailForgotPassword(
+    @Query("email") email: string,
+  ){
+    if(email === null){
+      throw new BadRequestException("email non valida")
+    }
+    return await this.sendEmailForgotPasseordUseCase.execute(email);
+  }
+
+  @Post('resetpassword')
+  @HttpCode(HttpStatus.OK)
+  @ApiBody({ type: LoginDto })
+  @ApiOperation({ summary: 'reimposta password' })
+  @ApiResponse({ status: 200, description: 'password aggiornata' })
+  async resetPassword(
+    @Body() body: resetPasswordReqDto
+  ){
+    
+    return await this.resetPasswordUseCase.execute(body);
   }
 }

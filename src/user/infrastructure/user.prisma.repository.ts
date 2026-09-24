@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
 import { IUserRepository } from '../domain/user.repository.interface.js';
 import { User, UserProps, UserRole } from '../domain/user.entity.js';
-import {User as PrismaUser, UserRole as PrismaUserRole} from '@prisma/client';
+import {User as PrismaUser} from '@prisma/client';
 
 @Injectable()
 export class UserPrismaRepository implements IUserRepository {
@@ -31,6 +31,18 @@ export class UserPrismaRepository implements IUserRepository {
     return this.toDomain(created);
   }
 
+  async update(user: User): Promise<User> {
+    const created = await this.prisma.user.update({
+      where: {id: user.id},
+      data: {
+        isEmailVerified: user.isEmailVerified,
+        passwordHash: user.passwordHash,
+        updatedAt: user.updatedAt,
+      }
+     });
+    return this.toDomain(created);
+  }
+
 
   private toDomain(record: PrismaUser): User {
     const props : UserProps = {
@@ -43,6 +55,7 @@ export class UserPrismaRepository implements IUserRepository {
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
       role: record.role as unknown as UserRole,
+      isEmailVerified: record.isEmailVerified,
       deleteAt: record.deletedAt
     }
     return User.reconstitute(props);

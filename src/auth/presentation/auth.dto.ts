@@ -21,3 +21,8 @@ export class AuthUserResDto{
   username: string;
   role: UserRole;
 }
+
+export class resetPasswordReqDto{
+    token: string;
+    password: string;
+}

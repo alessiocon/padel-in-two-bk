@@ -17,7 +17,8 @@ export type BookingProps = {
 
 export type UpdateBookingProps = {
   status?: BookingStatus,
-  description?: string
+  description?: string,
+  updateDate: Date
 };
 
 export class Booking {
@@ -74,7 +75,7 @@ export class Booking {
       ...this.props,
       status: changes.status || this.status,
       description: changes.description || this.description,
-      updatedAt: new Date(),
+      updatedAt: changes.updateDate,
     };
 
     // Riesegui le validazioni generali dell'entità
