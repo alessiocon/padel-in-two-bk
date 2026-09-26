@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Matches, Max, MaxLength, Min } from 'class-validator';
-import { ClubCourt, ClubStatus, CourtStatus} from "./../domain/club.js"
+import { ClubStatus} from "../domain/club.aggregate.js"
+import { CourtStatus} from "../domain/court.entity.js"
 
 export class CreateClubDto {
   @ApiProperty({ example: 'Padel Milano' })
@@ -102,6 +103,7 @@ export class ClubCourtDto {
   isIndoor: boolean;
   price: number;
   status: CourtStatus;
+  offsetMinutes: number;
 };
 
 

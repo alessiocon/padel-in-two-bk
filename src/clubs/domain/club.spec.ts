@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Club, ClubStatus } from './club.js';
+import { Club, ClubStatus } from './club.aggregate.js';
 
 describe('Club aggregate', () => {
   it('creates an active club with a generated identity', () => {

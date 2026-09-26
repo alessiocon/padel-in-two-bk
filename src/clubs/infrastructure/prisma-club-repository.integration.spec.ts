@@ -6,7 +6,7 @@ import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { PrismaService } from '../../database/prisma.service.js';
 import { ClubsModule } from '../clubs.module.js';
-import { Club } from '../domain/club.js';
+import { Club } from '../domain/club.aggregate.js';
 import { ClubConflictError } from '../domain/club-errors.js';
 import { PrismaClubRepository } from './prisma-club-repository.js';
 

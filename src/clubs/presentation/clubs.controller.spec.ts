@@ -10,9 +10,9 @@ import {
   ListClubsUseCase,
   UpdateClubUseCase,
 } from '../application/club-use-cases.js';
-import { Club } from '../domain/club.js';
+import { Club } from '../domain/club.aggregate.js';
 import { ClubConflictError } from '../domain/club-errors.js';
-import { CLUB_REPOSITORY, type IClubRepository } from '../domain/club-repository.js';
+import { CLUB_REPOSITORY, type IClubRepository } from '../domain/club-IRepository.js';
 import { USER_REPOSITORY, type IUserRepository } from './../../user/domain/user.repository.interface.js';
 import { ClubsController } from './clubs.controller.js';
 import { UserRole } from '../../user/domain/user.entity.js';

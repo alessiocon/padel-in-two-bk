@@ -1,8 +1,8 @@
-import { Club } from '../domain/club.js';
+import { Club } from '../domain/club.aggregate.js';
 import { ClubConflictError, ClubNotFoundError } from '../domain/club-errors.js';
 import { Inject, Injectable, NotFoundException, ForbiddenException} from '@nestjs/common';
 import { UserRole } from './../../user/domain/user.entity.js';
-import { CLUB_REPOSITORY, type IClubRepository } from '../domain/club-repository.js';
+import { CLUB_REPOSITORY, type IClubRepository } from '../domain/club-IRepository.js';
 import { USER_REPOSITORY, type IUserRepository } from '../../user/domain/user.repository.interface.js';
 import { CLOCK_SERVICE, type IClockService } from '../../service/interface/IClockService.js';
 import { ClubResDto, ClubsResDto } from './../presentation/club.dto.js';

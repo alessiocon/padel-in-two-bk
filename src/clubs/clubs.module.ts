@@ -6,7 +6,7 @@ import {
   GetClubUseCase,
   ListClubsUseCase,
 } from './application/club-use-cases.js';
-import { CLUB_REPOSITORY } from './domain/club-repository.js';
+import { CLUB_REPOSITORY } from './domain/club-IRepository.js';
 import { PrismaClubRepository } from './infrastructure/prisma-club-repository.js';
 import { ClubsController } from './presentation/clubs.controller.js';
 import { BOOKING_REPOSITORY } from '../bookings/domain/booking-repository.js';

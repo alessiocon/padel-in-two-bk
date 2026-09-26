@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { Club } from '../domain/club.js';
+import { Club } from '../domain/club.aggregate.js';
 import { ClubNotFoundError } from '../domain/club-errors.js';
-import type { IClubRepository } from '../domain/club-repository.js';
+import type { IClubRepository } from '../domain/club-IRepository.js';
 import {
   CreateClubUseCase,
   DeleteClubUseCase,

@@ -3,7 +3,8 @@ import {
   ClubStatus as PrismaClubStatus,
   CourtStatus as PrismaCourtStatus,
 } from '@prisma/client';
-import { Club, ClubCourt, ClubStatus, CourtStatus, type ClubProps } from '../domain/club.js';
+import { Club, ClubStatus,  type ClubProps } from '../domain/club.aggregate.js';
+import { Court, CourtStatus } from '../domain/court.entity.js';
 import { ClubResDto, ClubsResDto } from '../presentation/club.dto.js';
 
 // ==========================================
@@ -97,14 +98,15 @@ export class ClubMapper {
       closingTime: record.closingTime,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
-      courts: (record.courts ?? []).map((court) => ({
-        id: court.id,
-        clubId: court.clubId,
-        name: court.name,
-        isIndoor: court.isIndoor,
-        price: this.toNumber(court.price),
-        status: this.PRISMA_TO_DOMAIN_COURT_STATUS[court.status],
-      })),
+      courts: (record.courts ?? []).map((court) => Court.reconstitute({
+          id: court.id,
+          clubId: court.clubId,
+          name: court.name,
+          isIndoor: court.isIndoor,
+          price: this.toNumber(court.price),
+          status: this.PRISMA_TO_DOMAIN_COURT_STATUS[court.status],
+          offsetMinutes: court.offsetMinutes ?? 0
+        })),
     };
 
     return Club.reconstitute(props);
@@ -130,7 +132,7 @@ export class ClubMapper {
     };
   }
 
-  static toCourtPersistence(court: ClubCourt): Prisma.CourtCreateManyInput {
+  static toCourtPersistence(court: Court): Prisma.CourtCreateManyInput {
     return {
       id: court.id,
       clubId: court.clubId,
@@ -138,6 +140,7 @@ export class ClubMapper {
       isIndoor: court.isIndoor,
       price: new Prisma.Decimal(court.price),
       status: this.DOMAIN_TO_PRISMA_COURT_STATUS[court.status],
+      offsetMinutes: court.offsetMinutes
     };
   }
 

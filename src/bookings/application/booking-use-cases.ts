@@ -2,7 +2,7 @@ import { Inject, Injectable,NotFoundException,ForbiddenException, BadRequestExce
 import { Booking, BookingStatus, UpdateBookingProps } from '../domain/booking.js';
 import { BookingNotFoundError } from '../domain/booking-errors.js';
 import { BOOKING_REPOSITORY, type IBookingRepository } from '../domain/booking-repository.js';
-import { CLUB_REPOSITORY, type IClubRepository } from '../../clubs/domain/club-repository.js';
+import { CLUB_REPOSITORY, type IClubRepository } from '../../clubs/domain/club-IRepository.js';
 import { CLOCK_SERVICE, type IClockService } from '../../service/interface/IClockService.js';
 import { BookingResDto, BookingUserResDto } from '../presentation/booking.dto.js';
 import { BookingMapper } from '../infrastructure/prisma-booking-mapper.js';
@@ -46,10 +46,12 @@ export class CreateBookingUseCase {
     }
     
     const endsAtUTC = club.calculateBookingEnd(input.startsAt, input.slots ?? 1);
-    club.validateSlotOperatingHours(input.startsAt, endsAtUTC.toISOString());
+    const court = club.courts.find(court => court.id === input.courtId);
+    if(!court) throw new BadRequestException("il campo selezionato non esiste")
+    court.validateSlotOperatingHours(input.startsAt, endsAtUTC.toISOString(), club.timezone, club.openingTime, club.closingTime, club.slotDurationMinutes);
     const [startAtUTC] = club.convertInTimeZone([input.startsAt]);
     
-    const court = club.courts.find(court => court.id === input.courtId);
+    
     if (!court) {
       throw new NotFoundException(`Court with ID ${input.courtId} does not exist in club ${input.clubId}.`);
     }

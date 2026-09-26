@@ -31,7 +31,7 @@ import {
   ListClubsUseCase,
 } from '../application/club-use-cases.js';
 import { ClubConflictError, ClubNotFoundError } from '../domain/club-errors.js';
-import { Club } from '../domain/club.js';
+import { Club } from '../domain/club.aggregate.js';
 import { CreateClubDto, ClubsResDto, UpdateClubDto, ClubResDto } from './club.dto.js';
 import { Auth } from '../../auth/infrastructure/decorators/auth.decorator.js';
 import { UserRole } from '../../user/domain/user.entity.js';
@@ -77,7 +77,6 @@ export class ClubsController {
   @ApiNotFoundResponse({ description: 'Club not found' })
   async findOneByManager(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Request() req: any 
   ): Promise<ClubResDto> {
     try {
       return await this.getClub.execute(id);

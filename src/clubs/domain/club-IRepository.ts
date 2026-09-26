@@ -1,5 +1,5 @@
-import { ClubResDto, ClubsResDto } from './../presentation/club.dto.js';
-import type { Club } from './club.js';
+import { ClubResDto, ClubsResDto } from '../presentation/club.dto.js';
+import type { Club } from './club.aggregate.js';
 
 export const CLUB_REPOSITORY = Symbol('CLUB_REPOSITORY');
 

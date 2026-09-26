@@ -3,7 +3,7 @@ import { ChangeBooking, CreateBookingUseCase, DeleteBookingUseCase, GetAllBookin
 import { BOOKING_REPOSITORY } from './domain/booking-repository.js';
 import { PrismaBookingRepository } from './infrastructure/prisma-booking-repository.js';
 import { BookingsController } from './presentation/bookings.controller.js';
-import { CLUB_REPOSITORY } from '../clubs/domain/club-repository.js';
+import { CLUB_REPOSITORY } from '../clubs/domain/club-IRepository.js';
 import { PrismaClubRepository } from '../clubs/infrastructure/prisma-club-repository.js';
 import { ClubsModule } from '../clubs/clubs.module.js';
 
