@@ -2,8 +2,9 @@ import {
   Prisma,
   Booking as PrismaBooking,
   BookingStatus as PrismaBookingStatus,
+  BookingCancBy as PrismaBookingCancBy
 } from '@prisma/client';
-import { Booking, BookingStatus, type BookingProps } from '../domain/booking.js';
+import { Booking, BookingCancBy, BookingStatus, type BookingProps } from '../domain/booking.aggregate.js';
 import { BookingResDto, BookingUserResDto } from '../presentation/booking.dto.js';
 
 // ==========================================
@@ -71,6 +72,24 @@ export abstract class BookingMapper {
     [BookingStatus.CANCELLED]: PrismaBookingStatus.CANCELLED,
   };
 
+    public static readonly PRISMA_TO_DOMAIN_BOOKING_CANCELEDBY: Record<
+    PrismaBookingCancBy,
+    BookingCancBy
+  > = {
+    [PrismaBookingCancBy.USER]: BookingCancBy.USER,
+    [PrismaBookingCancBy.CLUB]: BookingCancBy.CLUB,
+  };
+
+  public static readonly DOMAIN_TO_PRISMA_BOOKING_CANCELEDBY: Record<
+    BookingCancBy,
+    PrismaBookingCancBy
+  > = {
+    [BookingCancBy.USER]: PrismaBookingCancBy.USER,
+    [BookingCancBy.CLUB]: PrismaBookingCancBy.CLUB,
+  };
+
+
+
 
 
 
@@ -85,6 +104,12 @@ export abstract class BookingMapper {
       courtId: record.courtId,
       userId: record.userId,
       description: record.description ?? undefined,
+
+      cancBy: record.cancBy ? this.PRISMA_TO_DOMAIN_BOOKING_CANCELEDBY[record.cancBy] : null,
+      cancAt: record.cancAt,
+      cancPostConfirm: record.cancPostConfirm ,
+      cancReason: record.cancReason,
+
       startsAt: record.startsAt,
       endsAt: record.endsAt,
       status: this.PRISMA_TO_DOMAIN_BOOKING_STATUS[record.status],
@@ -107,6 +132,12 @@ export abstract class BookingMapper {
       courtId: primitives.courtId,
       userId: primitives.userId,
       description: primitives.description ?? null,
+
+      cancBy: primitives.cancBy ? this.DOMAIN_TO_PRISMA_BOOKING_CANCELEDBY[primitives.cancBy] : null,
+      cancAt: primitives.cancAt,
+      cancPostConfirm: primitives.cancPostConfirm ,
+      cancReason: primitives.cancReason,
+
       startsAt: primitives.startsAt,
       endsAt: primitives.endsAt,
       status: this.DOMAIN_TO_PRISMA_BOOKING_STATUS[primitives.status],

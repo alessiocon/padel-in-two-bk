@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsDateString, IsIn, IsUUID, IsOptional, MaxLength } from 'class-validator';
-import { BookingStatus } from '../domain/booking.js';
+import { BookingStatus } from '../domain/booking.aggregate.js';
 
 export class CreateBookingDto {
   @ApiProperty({ format: 'uuid' })
@@ -30,7 +30,7 @@ export class CreateBookingDto {
 export class UpdateBookingDto {
   @ApiProperty({ enum: BookingStatus, example: BookingStatus.RESERVED })
   @IsOptional()
-  status: BookingStatus;
+  status?: BookingStatus;
 
   @ApiProperty({ type: String })
   clubId: string;
@@ -87,4 +87,29 @@ export class BookingUserResDto {
     startsAt: string;
     endsAt: string;
     isIndoor: boolean;
+}
+
+export class DeleteBookingDto{
+  @ApiProperty({ 
+    type: Boolean, 
+    description: 'identificare se la richiesta parte da un utente o dallo staff',
+    example: false,
+    required: true })
+  isStaff: boolean
+
+  @ApiProperty({ 
+    type: String, 
+    description: 'Descrive il motivo della cancellazioe della prenotazione',
+    example: "Non posso più venire",
+    required: false })
+  reason?: string;
+}
+
+export class RestoreBookingStatusDto{
+  @ApiProperty({ 
+    type: Boolean, 
+    description: 'identificare se la richiesta parte da un utente o dallo staff',
+    example: false,
+    required: true })
+  isStaff: boolean;
 }

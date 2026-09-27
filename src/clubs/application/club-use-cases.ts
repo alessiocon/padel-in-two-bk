@@ -69,9 +69,6 @@ export class CreateClubUseCase {
   }
 }
 
-      
-      
-
 @Injectable()
 export class ListClubsUseCase {
   constructor(@Inject(CLUB_REPOSITORY) private readonly clubs: IClubRepository) {}
@@ -94,6 +91,7 @@ export class GetClubUseCase {
   }
 }
 
+//TODO: CAMBIARE NOME PIù ESPLICATIVO
 @Injectable()
 export class GetClubByManagerUseCase {
   constructor(@Inject(CLUB_REPOSITORY) private readonly clubs: IClubRepository) {}
@@ -108,6 +106,18 @@ export class GetClubByManagerUseCase {
     }
     return club;
   }
+}
+
+
+export class GetClubStaffUseCase{
+  constructor(@Inject(CLUB_REPOSITORY) private readonly clubs: IClubRepository) {}
+  
+  async execute(id: string): Promise<string[]> {
+
+      const staff = await this.clubs.RO_ClubStaff(id);
+      return staff;
+  }
+
 }
 
 // @Injectable()
@@ -142,3 +152,12 @@ export class DeleteClubUseCase {
     await this.clubs.delete(id);
   }
 }
+
+export const CLUB_USE_CASES = [
+    CreateClubUseCase,
+    ListClubsUseCase,
+    GetClubUseCase,
+    GetClubByManagerUseCase,
+    GetClubStaffUseCase,
+    DeleteClubUseCase,
+  ];

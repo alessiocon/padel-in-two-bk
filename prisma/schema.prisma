@@ -39,6 +39,11 @@ enum BookingStatus {
   @@map("booking_status")
 }
 
+enum BookingCancBy {
+  USER  @map("user")
+  CLUB  @map("club")
+}
+
 enum TokenType {
   EMAIL_VERIFICATION  @map("email_verification")
   PASSWORD_RESET      @map("password_reset")
@@ -110,20 +115,27 @@ model Court {
 }
 
 model Booking {
-  id          String        @id @default(uuid()) @db.Uuid
-  clubId      String        @map("club_id") @db.Uuid
-  courtId     String        @map("court_id") @db.Uuid
-  userId      String        @map("user_id") @db.Uuid
-  description String?       @db.VarChar(255)
-  startsAt    DateTime      @map("starts_at") @db.Timestamptz
-  endsAt      DateTime      @map("ends_at") @db.Timestamptz
-  status      BookingStatus @default(RESERVED)
-  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  id                String            @id @default(uuid()) @db.Uuid
+  clubId            String            @map("club_id") @db.Uuid
+  courtId           String            @map("court_id") @db.Uuid
+  userId            String            @map("user_id") @db.Uuid
+  description       String?           @db.VarChar(255)
 
-  club  Club   @relation(fields: [clubId], references: [id], onDelete: Cascade)
-  court Court  @relation(fields: [courtId, clubId], references: [id, clubId], onDelete: Cascade)
-  user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  startsAt          DateTime          @map("starts_at") @db.Timestamptz
+  endsAt            DateTime          @map("ends_at") @db.Timestamptz
+  status            BookingStatus     @default(RESERVED)
+
+  cancBy            BookingCancBy?    @map("cancelled_by")       
+  cancAt            DateTime?         @map("cancelled_at")       
+  cancPostConfirm   Boolean?          @map("cancelled_post_confirm")
+  cancReason        String?           @db.VarChar(255) @map("cancellation_reason")
+
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  club              Club              @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  court             Court             @relation(fields: [courtId, clubId], references: [id, clubId], onDelete: Cascade)
+  user              User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@unique([id, clubId])
   @@index([clubId, startsAt, endsAt])

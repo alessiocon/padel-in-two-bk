@@ -37,6 +37,10 @@ export const clubDetailSelect = Prisma.validator<Prisma.ClubSelect>()({
   courts: true,
 });
 
+export const clubStaffSelect = Prisma.validator<Prisma.ClubSelect>()({
+  ownerId: true,
+});
+
 export type PrismaClubSummarySelect = Prisma.ClubGetPayload<{
   select: typeof clubSummarySelect;
 }>;
@@ -47,6 +51,10 @@ export type PrismaClubDetailSelect = Prisma.ClubGetPayload<{
 
 export type PrismaClubWithCourts = Prisma.ClubGetPayload<{
   include: { courts: true };
+}>;
+
+export type PrismaClubStaffSelect = Prisma.ClubGetPayload<{
+  select: typeof clubStaffSelect;
 }>;
 
 

@@ -23,10 +23,10 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { CreateBookingUseCase, GetBookingUseCase, GetAllBookingsClubUseCase, ChangeBooking, GetAllBookingsUserUseCase, DeleteBookingUseCase } from '../application/booking-use-cases.js';
+import { CreateBookingUseCase, GetBookingUseCase, GetAllBookingsClubUseCase, ChangeBookingUseCase, GetAllBookingsUserUseCase, DeleteBookingUseCase, RestoreBookingStatusUseCase, AcceptBookingUseCase } from '../application/booking-use-cases.js';
 import { BookingConflictError, BookingCourtNotFoundError, BookingNotFoundError } from '../domain/booking-errors.js';
-import { Booking, BookingStatus } from '../domain/booking.js';
-import { BookingResponseDto, BookingResDto, CreateBookingDto, UpdateBookingDto, BookingUserResDto } from './booking.dto.js';
+import { Booking, BookingStatus } from '../domain/booking.aggregate.js';
+import { BookingResponseDto, BookingResDto, CreateBookingDto, UpdateBookingDto, BookingUserResDto, DeleteBookingDto, RestoreBookingStatusDto } from './booking.dto.js';
 import { Auth } from '../../auth/infrastructure/decorators/auth.decorator.js';
 
 @ApiTags('bookings')
@@ -37,8 +37,10 @@ export class BookingsController {
     private readonly getBooking: GetBookingUseCase,
     private readonly GetAllBookingsClub: GetAllBookingsClubUseCase,
     private readonly GetAllBookingsUser: GetAllBookingsUserUseCase,
-    private readonly ChangeBooking: ChangeBooking,
-    private readonly DeleteBooking: DeleteBookingUseCase
+    private readonly ChangeBooking: ChangeBookingUseCase,
+    private readonly DeleteBooking: DeleteBookingUseCase,
+    private readonly AcceptBooking: AcceptBookingUseCase,
+    private readonly RestoreBookingStatusUseCase: RestoreBookingStatusUseCase
   ) {}
 
   @Post("clubs/:clubId")
@@ -134,19 +136,64 @@ export class BookingsController {
     });
   }
 
+
   @Delete(':id')
   @Auth()
   @ApiOperation({ summary: 'Delete booking by Id' })
   @ApiOkResponse({ type: [Boolean] })
   @ApiNotFoundResponse({ description: 'Booking not found' })
-  async deleteBooking(
+  async deleteBookingByClub(
+    @Param('id', new ParseUUIDPipe()) bookingId: string,
+    @Request() req: any,
+    @Body() input: DeleteBookingDto
+  ) : Promise<BookingResponseDto> {
+    let booking =  await this.DeleteBooking.execute({
+      bookingId,
+      userId: req.user.id,
+      reason: input.reason ?? "",
+      isStaff: input.isStaff
+    });
+    return this.toResponse(booking)
+  }
+
+  @Patch(':id/accept')
+  @Auth()
+  @ApiOperation({ summary: 'Restore Status of booking by Id' })
+  @ApiOkResponse({ type: [Boolean] })
+  @ApiNotFoundResponse({ description: 'Booking not found' })
+  async acceptBooking(
     @Param('id', new ParseUUIDPipe()) bookingId: string,
     @Request() req: any,
   ) : Promise<BookingResponseDto> {
-
-    let booking =  await this.DeleteBooking.execute( bookingId, req.user.id);
+    let booking =  await this.AcceptBooking.execute(
+      bookingId,
+      req.user.id,
+    );
     return this.toResponse(booking)
   }
+
+
+  @Patch(':id/restore')
+  @Auth()
+  @ApiOperation({ summary: 'Restore Status of booking by Id' })
+  @ApiOkResponse({ type: [Boolean] })
+  @ApiNotFoundResponse({ description: 'Booking not found' })
+  async restoreBookingStatusById(
+    @Param('id', new ParseUUIDPipe()) bookingId: string,
+    @Request() req: any,
+    @Body() input: RestoreBookingStatusDto
+  ) : Promise<BookingResponseDto> {
+    let booking =  await this.RestoreBookingStatusUseCase.execute(
+      bookingId,
+      req.user.id,
+      input.isStaff
+    );
+    return this.toResponse(booking)
+  }
+
+
+
+
 
 
   private toResponse(booking: Booking): BookingResponseDto {
@@ -161,4 +208,6 @@ export class BookingsController {
     if (error instanceof BadRequestException) return new BadRequestException(error.message);
     return new InternalServerErrorException('Unable to process booking request');
   }
+
+
 }

@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
-import { Booking, BookingStatus } from '../domain/booking.js';
+import { Booking, BookingStatus } from '../domain/booking.aggregate.js';
 import { BookingConflictError, BookingCourtNotFoundError } from '../domain/booking-errors.js';
 import type { IBookingRepository } from '../domain/booking-repository.js';
 import { BookingMapper, bookingSummarySelect, bookingUserSummarySelect } from './prisma-booking-mapper.js';
@@ -43,9 +43,10 @@ export class PrismaBookingRepository implements IBookingRepository {
     }
   }
 
-  async findById(id: string): Promise<Booking | null> {
+  async findById(id: string): Promise<Booking> {
     const record = await this.prisma.booking.findFirst({ where: { id } });
-    return record ? BookingMapper.toDomain(record) : null;
+    if(!record) throw new NotFoundException("Ordine non trovato")
+    return BookingMapper.toDomain(record)
   }
 
   async findAllByClubId(clubId: string, query: string): Promise<Booking[]> {
@@ -69,7 +70,7 @@ export class PrismaBookingRepository implements IBookingRepository {
     startsAt: Date, 
     endsAt: Date, 
     excludeBookingId?: string
-  ): Promise<boolean> {
+  ): Promise<void> {
     const count = await this.prisma.booking.count({
       where: {
         courtId,
@@ -81,7 +82,10 @@ export class PrismaBookingRepository implements IBookingRepository {
         ],
       },
     });
-    return count > 0;
+    if(count > 0){
+       throw new BadRequestException("The requested time slot is already booked.")
+    }
+    return ;
   }
 
   async update(booking: Booking): Promise<Booking> {
@@ -96,6 +100,11 @@ export class PrismaBookingRepository implements IBookingRepository {
           endsAt: data.endsAt,
           status: data.status,
           updatedAt: data.updatedAt,
+
+          cancBy: data.cancBy,
+          cancAt: data.cancAt,
+          cancPostConfirm: data.cancPostConfirm ,
+          cancReason: data.cancReason,
         },
       });
 

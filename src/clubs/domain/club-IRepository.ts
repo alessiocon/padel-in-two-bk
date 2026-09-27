@@ -12,4 +12,5 @@ export interface IClubRepository {
 
   RO_findAll(): Promise<ClubsResDto[]>;
   RO_findById(id: string): Promise<ClubResDto | null>;
+  RO_ClubStaff(idClub: string): Promise<string[]>;
 }

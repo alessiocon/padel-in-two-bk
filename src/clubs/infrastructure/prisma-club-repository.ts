@@ -1,9 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
 import { Club } from '../domain/club.aggregate.js';
 import { ClubConflictError, ClubNotFoundError } from '../domain/club-errors.js';
 import type { IClubRepository } from '../domain/club-IRepository.js';
-import { clubDetailSelect, ClubMapper, clubSummarySelect } from './prisma-club-mapper.js';
+import { clubDetailSelect, ClubMapper, clubStaffSelect, clubSummarySelect } from './prisma-club-mapper.js';
 import { ClubResDto, ClubsResDto } from './../presentation/club.dto.js';
 
 
@@ -90,6 +90,17 @@ export class PrismaClubRepository implements IClubRepository {
     if (!record) return null;
     return ClubMapper.toDetailDto(record);
   }
+
+    async RO_ClubStaff(id: string): Promise<string[]> {
+    const record = await this.prisma.club.findUnique({
+      where: { id },
+      select: clubStaffSelect,
+    });
+
+    if (!record) throw new NotFoundException("Club non trovato");
+    return [record.ownerId];
+  }
+
 
   
 

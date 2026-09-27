@@ -1,6 +1,8 @@
+import { BadRequestException } from "@nestjs/common";
 import { BookingPastDateError } from "./booking-errors.js";
 
 export enum BookingStatus { RESERVED = "reserved" ,PENDING = "pending" ,CONFIRMED = "confirmed" ,CANCELLED = "cancelled" };
+export enum BookingCancBy { USER = "user" ,CLUB = "club" };
 
 export type BookingProps = {
   id: string;
@@ -11,12 +13,17 @@ export type BookingProps = {
   startsAt: Date;
   endsAt: Date;
   status: BookingStatus;
+
+  cancBy: BookingCancBy | null;
+  cancAt: Date | null;
+  cancPostConfirm: boolean | null;
+  cancReason: string | null;
+
   createdAt: Date;
   updatedAt: Date;
 };
 
 export type UpdateBookingProps = {
-  status?: BookingStatus,
   description?: string,
   updateDate: Date
 };
@@ -27,7 +34,7 @@ export class Booking {
   }
 
   static create(
-    input: Omit<BookingProps, 'id' | 'updatedAt'>,
+    input: Omit<BookingProps, 'id' | 'updatedAt' | 'cancBy' | 'cancAt' | 'cancPostConfirm' | 'cancReason'>,
 
     id = crypto.randomUUID(),
   ): Booking {
@@ -45,6 +52,12 @@ export class Booking {
       startsAt: input.startsAt,
       endsAt: input.endsAt,
       status: input.status,
+
+      cancBy: null,
+      cancPostConfirm: null,
+      cancReason: null,
+      cancAt: null,
+
       createdAt: input.createdAt,
       updatedAt:  input.createdAt
     });
@@ -63,17 +76,20 @@ export class Booking {
   get userId(): string {return this.props.userId}
   get description() : string|undefined {return this.props.description}
   get startsAt(): Date { return new Date(this.props.startsAt); }
+
+  get cancBy(): BookingCancBy|null { return this.props.cancBy; }
+  get cancPostConfirm(): boolean|null { return this.props.cancPostConfirm; }
+  get cancReason(): string|null { return this.props.cancReason; }
+  get cancAt(): Date|null { return this.props.cancAt; }
+
   get endsAt(): Date { return new Date(this.props.endsAt); }
   get status(): BookingStatus { return this.props.status; }
 
 
-  // isOccupying(): boolean { return this.status !== 'free'; }
-
   updateDetails(changes: UpdateBookingProps): void {
-   
+
     const updatedProps: BookingProps = {
       ...this.props,
-      status: changes.status || this.status,
       description: changes.description || this.description,
       updatedAt: changes.updateDate,
     };
@@ -82,6 +98,29 @@ export class Booking {
     Booking.validate(updatedProps);
 
     // Applica le modifiche allo stato interno
+    this.props = updatedProps;
+  }
+
+  updateCancelDetails(input : Pick<BookingProps, 'cancAt' | 'cancBy' | 'cancPostConfirm' | 'cancReason' | 'cancAt' | 'status' | 'updatedAt'>){
+    const updatedProps: BookingProps = {
+      ...this.props,
+      ...input,
+    };
+
+    this.props = updatedProps;
+  }
+
+
+  acceptBooking(time: Date){
+      if (this.status !== BookingStatus.PENDING) {throw new BadRequestException("La prenotazione non è in attesa")}
+      if(this.cancAt !== null) {throw new BadRequestException("La prenotazione non è più disponibile")}
+      
+      const updatedProps: BookingProps = {
+      ...this.props,
+      status: BookingStatus.CONFIRMED,
+      updatedAt: time
+    };
+
     this.props = updatedProps;
   }
 

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import {
+  CLUB_USE_CASES,
   CreateClubUseCase,
   DeleteClubUseCase,
   GetClubByManagerUseCase,
@@ -20,13 +21,9 @@ import { UserModule } from '../user/user.module.js';
     PrismaBookingRepository,
     { provide: CLUB_REPOSITORY, useExisting: PrismaClubRepository },
     { provide: BOOKING_REPOSITORY, useExisting: PrismaBookingRepository },
-    CreateClubUseCase,
-    ListClubsUseCase,
-    GetClubUseCase,
-    DeleteClubUseCase,
-    GetClubByManagerUseCase
+    ...CLUB_USE_CASES
   ],
   imports: [UserModule],
-  exports: [CreateClubUseCase, ListClubsUseCase, GetClubUseCase, DeleteClubUseCase, PrismaClubRepository],
+  exports: [...CLUB_USE_CASES, PrismaClubRepository],
 })
 export class ClubsModule {}

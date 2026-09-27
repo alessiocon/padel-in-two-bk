@@ -1,13 +1,13 @@
 import { BookingResDto, BookingUserResDto } from './../presentation/booking.dto.js';
-import type { Booking, BookingStatus } from './booking.js';
+import type { Booking, BookingStatus } from './booking.aggregate.js';
 
 export const BOOKING_REPOSITORY = Symbol('BOOKING_REPOSITORY');
 
 export interface IBookingRepository {
   create(booking: Booking): Promise<Booking>;
-  findById(id: string): Promise<Booking | null>;
+  findById(id: string): Promise<Booking>;
   findAllByClubId(clubId: string, query: string): Promise<Booking[]>;
-  hasOverlappingBooking(courtId: string, startsAt: Date, endsAt: Date, excludeBookingId?: string): Promise<boolean>;
+  hasOverlappingBooking(courtId: string, startsAt: Date, endsAt: Date, excludeBookingId?: string): Promise<void>;
   update(booking: Booking): Promise<Booking>
   delete(bookingId: string): Promise<boolean>
 

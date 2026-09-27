@@ -1,11 +1,12 @@
 import { Inject, Injectable,NotFoundException,ForbiddenException, BadRequestException } from '@nestjs/common';
-import { Booking, BookingStatus, UpdateBookingProps } from '../domain/booking.js';
+import { Booking, BookingCancBy, BookingStatus, UpdateBookingProps } from '../domain/booking.aggregate.js';
 import { BookingNotFoundError } from '../domain/booking-errors.js';
 import { BOOKING_REPOSITORY, type IBookingRepository } from '../domain/booking-repository.js';
 import { CLUB_REPOSITORY, type IClubRepository } from '../../clubs/domain/club-IRepository.js';
 import { CLOCK_SERVICE, type IClockService } from '../../service/interface/IClockService.js';
 import { BookingResDto, BookingUserResDto } from '../presentation/booking.dto.js';
 import { BookingMapper } from '../infrastructure/prisma-booking-mapper.js';
+import { GetClubStaffUseCase, GetClubUseCase } from '../../clubs/application/club-use-cases.js';
 
 
 export type CreateBookingInput = {
@@ -22,8 +23,12 @@ export type UpdateBookingInput = {
   clubId: string;
   bookingId: string;
   userId: string;
-  status: BookingStatus;
+  status?: BookingStatus;
 };
+
+type DeleteBookingByClubInput = { bookingId: string, userId: string, reason: string | null, isStaff: boolean}
+
+
 
 @Injectable()
 export class CreateBookingUseCase {
@@ -56,16 +61,8 @@ export class CreateBookingUseCase {
       throw new NotFoundException(`Court with ID ${input.courtId} does not exist in club ${input.clubId}.`);
     }
 
-    const isOccupied = await this.bookingRepository.hasOverlappingBooking(
-      input.courtId,
-      startAtUTC,
-      endsAtUTC,
-    );
+    await this.bookingRepository.hasOverlappingBooking(input.courtId, startAtUTC, endsAtUTC);
     
-    if (isOccupied) {
-      throw new ForbiddenException('The requested time slot is already booked.');
-    }
-
     var now = this.clock.now();
 
     const bookingEntity = Booking.create({
@@ -145,93 +142,168 @@ export class GetAllBookingsUserUseCase {
   }
 }
 
+
 @Injectable()
 export class DeleteBookingUseCase {
   constructor(
     @Inject(BOOKING_REPOSITORY) private readonly repository: IBookingRepository,
     @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
+    private readonly getStaffClub: GetClubStaffUseCase
   ) {}
 
-  async execute(bookingId: string, userId: string): Promise<Booking> {
+  async execute(input: DeleteBookingByClubInput): Promise<Booking> {
     const time = this.clock.now();
-    const booking = await this.repository.findById(bookingId);
+    const booking = await this.repository.findById(input.bookingId);
 
     if (booking === null) { throw new NotFoundException("Prenotazione non trovata");}
-    if (booking.userId !== userId) { throw new ForbiddenException("Autorizzazione non concessa");}
+    
+    if(input.isStaff){
+      const staff = await this.getStaffClub.execute(booking.clubId)
+      if(!staff.includes(input.userId)) { throw new ForbiddenException("Autorizzazione non concessa");}
+      
+    }else{
+      if (booking.userId !== input.userId || booking.status === BookingStatus.RESERVED) 
+        { throw new ForbiddenException("Autorizzazione non concessa"); }
+    }
 
     switch (booking.status) {
-      case BookingStatus.CONFIRMED: {
-        const now = new Date();
-        const startsAt = new Date(booking.startsAt);
+          case  BookingStatus.RESERVED:
+          case  BookingStatus.CONFIRMED:
+            {
+              booking.updateCancelDetails({
+                  status: BookingStatus.CANCELLED,
+                  updatedAt: time,
+                  cancBy: input.isStaff ? BookingCancBy.CLUB : BookingCancBy.USER,
+                  cancAt: time,
+                  cancPostConfirm: true,
+                  cancReason: input.reason
+              });
 
-        const hoursDifference = (startsAt.getTime() - now.getTime()) / (1000 * 60 * 60);
+              await this.repository.update(booking);
+              break;
+            }
+          case BookingStatus.PENDING: {
+              // In fase di test (e per richieste mai decollate), puliamo il DB
+              await this.repository.delete(booking.id);
+              break;
+          }
 
-        if (hoursDifference < 24) {
-          const updateBooking: UpdateBookingProps = {
-            status: BookingStatus.CANCELLED,
-            description: "Cancellata dall'utente",
-            updateDate: time
-          };
-
-          booking.updateDetails(updateBooking);
-          await this.repository.update(booking);
-        } else {
-          await this.repository.delete(booking.id);
-          // Impostiamo lo stato a CANCELLED in memoria per segnalare al FE che è stata disdetta/rimossa nei tempi
-          booking.updateDetails({ status: BookingStatus.CANCELLED, updateDate: time });
-        }
-
-        break;
+          default:
+              throw new BadRequestException("Stato della prenotazione non valido per la cancellazione");
       }
-      case BookingStatus.PENDING: {
-        await this.repository.delete(booking.id);
-        break;
-      }
-      // default:
-      //   return booking;
-    }
+
     return booking;
   }
 }
 
+
 @Injectable()
-export class ChangeBooking {
+export class RestoreBookingStatusUseCase {
   constructor(
     @Inject(BOOKING_REPOSITORY) private readonly bookingRepository: IBookingRepository,
-    @Inject(CLUB_REPOSITORY) private readonly clubRepository: IClubRepository,
+    @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
+    private readonly getClubStaffUseCase : GetClubStaffUseCase
+  ) {}
+
+  async execute(bookingId: string, userId: string, isReqStaff: boolean): Promise<Booking> {
+    const time = this.clock.now();
+    const booking = await this.bookingRepository.findById(bookingId);
+
+    if (booking === null) { throw new NotFoundException("Prenotazione non trovata");}
+    if (booking.status !== BookingStatus.CANCELLED) {throw new BadRequestException("La prenotazione non è eliminata")}
+
+
+    let status = BookingStatus.CANCELLED;
+    if(isReqStaff){
+      const staff = await this.getClubStaffUseCase.execute(booking.clubId);
+
+      if (!staff.includes(userId)) { throw new ForbiddenException("Autorizzazione non concessa") }
+      if (booking.cancBy !== BookingCancBy.CLUB) { throw new ForbiddenException("La cancellazione è partita dall'utente non puoi ripristinarla");}
+
+      status = staff.includes(booking.userId) ? BookingStatus.RESERVED : BookingStatus.CONFIRMED;
+
+    }else{
+      if (booking.userId !== userId || booking.cancBy !== BookingCancBy.USER) { throw new ForbiddenException("Autorizzazione non concessa");}
+      status = booking.cancPostConfirm ? BookingStatus.CONFIRMED : BookingStatus.PENDING;
+    }
+
+    booking.updateCancelDetails({
+      status: status,
+      updatedAt: time,
+      cancBy: null,
+      cancAt: null,
+      cancPostConfirm: null,
+      cancReason: null
+    });
+
+    await this.bookingRepository.hasOverlappingBooking(booking.courtId, booking.startsAt, booking.endsAt, booking.id);
+    await this.bookingRepository.update(booking);
+
+    return booking;
+  }
+}
+
+  @Injectable()
+  export class AcceptBookingUseCase {
+    constructor(
+      @Inject(BOOKING_REPOSITORY) private readonly bookingRepository: IBookingRepository,
+      @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
+      private readonly getClubStaffUseCase : GetClubStaffUseCase
+    ) {}
+
+    async execute(bookingId: string, userId: string): Promise<Booking> {
+      const time = this.clock.now();
+      const booking = await this.bookingRepository.findById(bookingId);
+
+      if (booking === null) { throw new NotFoundException("Prenotazione non trovata");}
+
+      const staff = await this.getClubStaffUseCase.execute(booking.clubId);
+      if (!staff.includes(userId)) { throw new ForbiddenException("Autorizzazione non concessa") }
+
+      booking.acceptBooking(time);
+
+      await this.bookingRepository.hasOverlappingBooking(booking.courtId, booking.startsAt, booking.endsAt, booking.id);
+      await this.bookingRepository.update(booking);
+
+      return booking;
+    }
+  }
+
+
+
+@Injectable()
+export class ChangeBookingUseCase {
+  constructor(
+    @Inject(BOOKING_REPOSITORY) private readonly bookingRepository: IBookingRepository,
     @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
   ) {}
 
   async execute(input: UpdateBookingInput) {
     const time = this.clock.now()
     const booking = await this.bookingRepository.findById(input.bookingId);
-    if (!booking) {
-      throw new NotFoundException(`Booking with ID ${input.bookingId} not found.`);
-    }
 
     if(booking.clubId !== input.clubId){
-      throw new NotFoundException(`La prenotazione con ID ${input.bookingId} non appartiene al club con ID ${input.clubId} `);
+      throw new NotFoundException(`La prenotazione con ID ${input.bookingId} non appartiene al club con ID ${input.clubId}`);
     }
 
-    const club = await this.clubRepository.findById(input.clubId);
-    if (!club) {
-      throw new NotFoundException(`Club with ID ${input.clubId} does not exist.`);
-    }
-
-    if(club.ownerId !== input.userId){
-      throw new NotFoundException(`Non sei autorizzato a modificare la prenotazione con ID ${input.bookingId} `);
-    }
-    
     booking.updateDetails({
-      status: input.status ?? booking.status,
       updateDate: time
     })
 
-    let isOverlapping = await this.bookingRepository.hasOverlappingBooking(booking.courtId, booking.startsAt, booking.endsAt, booking.id);
-    if(isOverlapping){
-      throw new BadRequestException("è presente già una prenotazione a quest'ora per questo campo")
-    }
+    await this.bookingRepository.hasOverlappingBooking(booking.courtId, booking.startsAt, booking.endsAt, booking.id);
+   
 
     return await this.bookingRepository.update(booking);
   }
 }
+
+export const BOOKING_USE_CASES = [
+    CreateBookingUseCase,
+    GetBookingUseCase,
+    GetAllBookingsClubUseCase,
+    GetAllBookingsUserUseCase,
+    ChangeBookingUseCase,
+    DeleteBookingUseCase,
+    AcceptBookingUseCase,
+    RestoreBookingStatusUseCase,
+  ];

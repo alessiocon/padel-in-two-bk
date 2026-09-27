@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CreateBookingUseCase, GetBookingUseCase } from './booking-use-cases.js';
-import { Booking } from '../domain/booking.js';
+import { Booking } from '../domain/booking.aggregate.js';
 import type { IBookingRepository } from '../domain/booking-repository.js';
 
 describe('booking use cases', () => {

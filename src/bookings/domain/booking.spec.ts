@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BOOKING_DURATION_MINUTES, Booking } from './booking.js';
+import { BOOKING_DURATION_MINUTES, Booking } from './booking.aggregate.js';
 
 describe('Booking', () => {
   const input = {
