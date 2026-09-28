@@ -27,7 +27,8 @@ export class CreateUserUseCase {
         firstName: dto.firstName,
         lastName: dto.lastName,
         username: dto.username,
-        createdAt: timeNow,
+        phone: dto.phone,
+        createdAt: timeNow
     })
 
     try {

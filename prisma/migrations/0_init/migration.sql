@@ -1,3 +1,6 @@
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
+
 -- CreateEnum
 CREATE TYPE "user_role" AS ENUM ('user', 'club_owner', 'admin');
 
@@ -10,6 +13,12 @@ CREATE TYPE "court_status" AS ENUM ('available', 'reserved', 'maintenance', 'ina
 -- CreateEnum
 CREATE TYPE "booking_status" AS ENUM ('reserved', 'pending', 'confirmed', 'cancelled');
 
+-- CreateEnum
+CREATE TYPE "BookingCancBy" AS ENUM ('user', 'club');
+
+-- CreateEnum
+CREATE TYPE "token_type" AS ENUM ('email_verification', 'password_reset', 'club_invitation');
+
 -- CreateTable
 CREATE TABLE "users" (
     "id" UUID NOT NULL,
@@ -17,6 +26,9 @@ CREATE TABLE "users" (
     "password_hash" VARCHAR(255) NOT NULL,
     "first_name" VARCHAR(100) NOT NULL,
     "last_name" VARCHAR(100) NOT NULL,
+    "username" VARCHAR(50) NOT NULL,
+    "is_email_verified" BOOLEAN NOT NULL DEFAULT false,
+    "phone" VARCHAR(30),
     "role" "user_role" NOT NULL DEFAULT 'user',
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ NOT NULL,
@@ -33,6 +45,8 @@ CREATE TABLE "clubs" (
     "email" VARCHAR(320) NOT NULL,
     "status" "club_status" NOT NULL DEFAULT 'active',
     "timezone" VARCHAR(50) NOT NULL DEFAULT 'Europe/Rome',
+    "position" VARCHAR(150) NOT NULL DEFAULT '',
+    "racket_price" DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     "slot_duration_minutes" INTEGER NOT NULL DEFAULT 90,
     "opening_time" VARCHAR(5) NOT NULL DEFAULT '08:00',
     "closing_time" VARCHAR(5) NOT NULL DEFAULT '23:00',
@@ -47,7 +61,10 @@ CREATE TABLE "courts" (
     "id" UUID NOT NULL,
     "club_id" UUID NOT NULL,
     "name" VARCHAR(120) NOT NULL,
+    "slot_price" DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     "status" "court_status" NOT NULL DEFAULT 'available',
+    "is_indoor" BOOLEAN NOT NULL DEFAULT false,
+    "offset_minutes" INTEGER NOT NULL DEFAULT 0,
 
     CONSTRAINT "courts_pkey" PRIMARY KEY ("id")
 );
@@ -62,14 +79,36 @@ CREATE TABLE "bookings" (
     "starts_at" TIMESTAMPTZ NOT NULL,
     "ends_at" TIMESTAMPTZ NOT NULL,
     "status" "booking_status" NOT NULL DEFAULT 'reserved',
+    "cancelled_by" "BookingCancBy",
+    "cancelled_at" TIMESTAMP(3),
+    "cancelled_post_confirm" BOOLEAN,
+    "cancellation_reason" VARCHAR(255),
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ NOT NULL,
 
     CONSTRAINT "bookings_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "tokens" (
+    "id" UUID NOT NULL,
+    "token_hash" VARCHAR(255) NOT NULL,
+    "type" "token_type" NOT NULL,
+    "reference_id" UUID NOT NULL,
+    "expires_at" TIMESTAMPTZ NOT NULL,
+    "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "tokens_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_username_key" ON "users"("username");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_phone_key" ON "users"("phone");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "clubs_email_key" ON "clubs"("email");
@@ -98,6 +137,15 @@ CREATE INDEX "bookings_user_id_idx" ON "bookings"("user_id");
 -- CreateIndex
 CREATE UNIQUE INDEX "bookings_id_club_id_key" ON "bookings"("id", "club_id");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "tokens_token_hash_key" ON "tokens"("token_hash");
+
+-- CreateIndex
+CREATE INDEX "tokens_reference_id_idx" ON "tokens"("reference_id");
+
+-- CreateIndex
+CREATE INDEX "tokens_type_idx" ON "tokens"("type");
+
 -- AddForeignKey
 ALTER TABLE "clubs" ADD CONSTRAINT "clubs_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
@@ -112,3 +160,4 @@ ALTER TABLE "bookings" ADD CONSTRAINT "bookings_court_id_club_id_fkey" FOREIGN K
 
 -- AddForeignKey
 ALTER TABLE "bookings" ADD CONSTRAINT "bookings_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+

@@ -12,6 +12,7 @@ export interface UserProps {
   lastName: string;
   username: string;
   isEmailVerified: boolean;
+  phone: string | null;
   role: UserRole;
   createdAt: Date;
   updatedAt: Date;
@@ -38,6 +39,7 @@ export class User {
   get updatedAt(): Date { return this.props.updatedAt; }
   get role(): UserRole { return this.props.role; }
   get isEmailVerified(): boolean { return this.props.isEmailVerified; }
+  get phone(): string|null { return this.props.phone; }
 
   get isDeleted(): boolean { return !!this._deletedAt;}
 

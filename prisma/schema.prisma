@@ -53,21 +53,24 @@ enum TokenType {
 }
 
 model User {
-  id              String    @id @default(uuid()) @db.Uuid
-  email           String    @unique @db.VarChar(320)
-  passwordHash    String    @map("password_hash") @db.VarChar(255)
-  firstName       String    @map("first_name") @db.VarChar(100)
-  lastName        String    @map("last_name") @db.VarChar(100)
-  username        String    @unique @db.VarChar(50)
-  isEmailVerified Boolean   @default(false) @map("is_email_verified")
-  role            UserRole  @default(USER)
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
-  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz
+  id                String    @id @default(uuid()) @db.Uuid
+  email             String    @unique @db.VarChar(320)
+  passwordHash      String    @map("password_hash") @db.VarChar(255)
+  firstName         String    @map("first_name") @db.VarChar(100)
+  lastName          String    @map("last_name") @db.VarChar(100)
+  username          String    @unique @db.VarChar(50)
+  isEmailVerified   Boolean   @default(false) @map("is_email_verified")
+  phone             String?   @unique @db.VarChar(30) @map("phone")
+  role              UserRole  @default(USER)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz
 
   // Relazioni
   bookings Booking[]
   clubs    Club[]    @relation("ClubOwner")
+  teamsAsPlayer1 TournamentTeam[] @relation("Player1")
+  teamsAsPlayer2 TournamentTeam[] @relation("Player2")
 
   @@map("users")
 }
@@ -155,4 +158,41 @@ model Token {
   @@index([referenceId])
   @@index([type])
   @@map("tokens")
+}
+
+
+model Tournament {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String   @db.VarChar(150)
+  description String?  @db.Text
+  startDate   DateTime @map("start_date") @db.Timestamptz
+  maxTeams    Int      @default(8) @map("max_teams")
+  isClosed    Boolean  @default(false) @map("is_closed")
+
+  teams       TournamentTeam[]
+
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  
+  @@map("tournaments")
+}
+
+model TournamentTeam {
+  id            String     @id @default(uuid()) @db.Uuid
+  tournamentId  String     @map("tournament_id") @db.Uuid
+  tournament    Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  teamName      String     @map("team_name") @db.VarChar(100)
+
+  player1Id     String     @map("player1_id") @db.Uuid
+  player1       User       @relation("Player1", fields: [player1Id], references: [id])
+
+  player2Id     String?    @map("player2_id") @db.Uuid
+  player2       User?      @relation("Player2", fields: [player2Id], references: [id])
+  player2FName  String?    @map("player2_fname") @db.VarChar(24)
+  player2LName  String?    @map("player2_lname") @db.VarChar(24)
+  player2Phone  String?    @map("player2_phone") @db.VarChar(30)  
+
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("tournament_teams")
 }

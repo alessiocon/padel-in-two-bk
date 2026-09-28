@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsOptional, IsPhoneNumber, IsString, MaxLength, MinLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '../domain/user.entity.js';
 
@@ -29,6 +29,10 @@ export class CreateUserDto {
   @MinLength(3)
   @MaxLength(16)
   username: string;
+
+  @ApiProperty({ example: "+393278457548", required: true })
+  @IsPhoneNumber('IT', { message: "Il numero di telefono non è valido" })
+  phone: string;
 }
 
 export class UserResponseDto{
