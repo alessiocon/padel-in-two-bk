@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { BOOKING_USE_CASES } from './application/booking-use-cases.js';
-import { BOOKING_REPOSITORY } from './domain/booking-repository.js';
+import { BOOKING_IREPOSITORY } from './domain/booking-IRepository.js';
 import { PrismaBookingRepository } from './infrastructure/prisma-booking-repository.js';
 import { BookingsController } from './presentation/bookings.controller.js';
 import { CLUB_REPOSITORY } from '../clubs/domain/club-IRepository.js';
@@ -12,7 +12,7 @@ import { ClubsModule } from '../clubs/clubs.module.js';
   controllers: [BookingsController],
   providers: [
     PrismaBookingRepository,
-    { provide: BOOKING_REPOSITORY, useExisting: PrismaBookingRepository },
+    { provide: BOOKING_IREPOSITORY, useExisting: PrismaBookingRepository },
     { provide: CLUB_REPOSITORY, useExisting: PrismaClubRepository },
     ...BOOKING_USE_CASES
   ],

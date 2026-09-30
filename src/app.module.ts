@@ -7,6 +7,7 @@ import { UserModule } from './user/user.module.js';
 import { CoreModule } from './core.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { NotificationModule } from './notification/notification.module.js';
+import { TournamentModule } from './tournament/tournament.module.js';
 
 
 @Module({
@@ -19,7 +20,9 @@ import { NotificationModule } from './notification/notification.module.js';
     BookingsModule,
     UserModule,
     AuthModule,
-    NotificationModule
+    NotificationModule,
+    TournamentModule
+    
   ],
 })
 export class AppModule {}

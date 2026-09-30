@@ -1,7 +1,7 @@
-import { BookingResDto, BookingUserResDto } from './../presentation/booking.dto.js';
+import { BookingResDto, BookingUserResDto } from '../presentation/booking.dto.js';
 import type { Booking, BookingStatus } from './booking.aggregate.js';
 
-export const BOOKING_REPOSITORY = Symbol('BOOKING_REPOSITORY');
+export const BOOKING_IREPOSITORY = Symbol('BOOKING_REPOSITORY');
 
 export interface IBookingRepository {
   create(booking: Booking): Promise<Booking>;

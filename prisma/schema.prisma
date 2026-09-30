@@ -162,16 +162,25 @@ model Token {
 
 
 model Tournament {
-  id          String   @id @default(uuid()) @db.Uuid
-  title       String   @db.VarChar(150)
-  description String?  @db.Text
-  startDate   DateTime @map("start_date") @db.Timestamptz
-  maxTeams    Int      @default(8) @map("max_teams")
-  isClosed    Boolean  @default(false) @map("is_closed")
+  id            String    @id @default(uuid()) @db.Uuid
+  title         String    @db.VarChar(150)
+  description   String?   @db.Text
+  position      String    @db.VarChar(150)
+  municipality  String    @db.VarChar(32)
+  province      String    @db.VarChar(32)
+  award         String    @db.VarChar(150)
+  startsAt      DateTime  @map("starts_at") @db.Timestamptz
+  endsAt        DateTime  @map("ends_at") @db.Timestamptz
+  timezone      String    @default("Europe/Rome") @db.VarChar(50)
+  maxTeams      Int       @default(8) @map("max_teams")
+  isClosed      Boolean   @default(false) @map("is_closed")
+  isVisible     Boolean   @default(false) @map("is_visible")
+  showTeams     Boolean   @default(false) @map("show_teams")
 
   teams       TournamentTeam[]
 
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
   
   @@map("tournaments")
 }
@@ -192,7 +201,8 @@ model TournamentTeam {
   player2LName  String?    @map("player2_lname") @db.VarChar(24)
   player2Phone  String?    @map("player2_phone") @db.VarChar(30)  
 
-  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@map("tournament_teams")
 }

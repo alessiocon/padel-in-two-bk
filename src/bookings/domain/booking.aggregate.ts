@@ -35,7 +35,6 @@ export class Booking {
 
   static create(
     input: Omit<BookingProps, 'id' | 'updatedAt' | 'cancBy' | 'cancAt' | 'cancPostConfirm' | 'cancReason'>,
-
     id = crypto.randomUUID(),
   ): Booking {
 
@@ -134,16 +133,7 @@ export class Booking {
     );
   }
 
-  toPrimitives(): BookingProps {
-  return {
-    ...this.props,
-    startsAt: this.startsAt,
-    endsAt: this.endsAt,
-    description: this.description,
-    createdAt: new Date(this.props.createdAt),
-    updatedAt: new Date(this.props.updatedAt),
-  };
-}
+  toPrimitives(): BookingProps { return { ...this.props } }
 
   private static validate(props: BookingProps): void {
     if (!props.clubId || !props.courtId) {

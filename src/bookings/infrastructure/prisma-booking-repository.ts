@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
-import { Booking, BookingStatus } from '../domain/booking.aggregate.js';
+import { Booking } from '../domain/booking.aggregate.js';
 import { BookingConflictError, BookingCourtNotFoundError } from '../domain/booking-errors.js';
-import type { IBookingRepository } from '../domain/booking-repository.js';
+import type { IBookingRepository } from '../domain/booking-IRepository.js';
 import { BookingMapper, bookingSummarySelect, bookingUserSummarySelect } from './prisma-booking-mapper.js';
 import { BookingResDto, BookingUserResDto } from '../presentation/booking.dto.js';
 import { Prisma } from '@prisma/client';
@@ -18,7 +18,7 @@ export class PrismaBookingRepository implements IBookingRepository {
       throw new BookingCourtNotFoundError(booking.courtId);
     }
 
-    var bookingPrimitive = booking.toPrimitives()
+    var bookingPrimitive = BookingMapper.toPersistence(booking)
     try {
       const record = await this.prisma.booking.create({
         data: {

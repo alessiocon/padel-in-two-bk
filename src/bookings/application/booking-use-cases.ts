@@ -1,7 +1,7 @@
 import { Inject, Injectable,NotFoundException,ForbiddenException, BadRequestException } from '@nestjs/common';
 import { Booking, BookingCancBy, BookingStatus, UpdateBookingProps } from '../domain/booking.aggregate.js';
 import { BookingNotFoundError } from '../domain/booking-errors.js';
-import { BOOKING_REPOSITORY, type IBookingRepository } from '../domain/booking-repository.js';
+import { BOOKING_IREPOSITORY, type IBookingRepository } from '../domain/booking-IRepository.js';
 import { CLUB_REPOSITORY, type IClubRepository } from '../../clubs/domain/club-IRepository.js';
 import { CLOCK_SERVICE, type IClockService } from '../../service/interface/IClockService.js';
 import { BookingResDto, BookingUserResDto } from '../presentation/booking.dto.js';
@@ -34,7 +34,7 @@ type DeleteBookingByClubInput = { bookingId: string, userId: string, reason: str
 export class CreateBookingUseCase {
   constructor(
     @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
-    @Inject(BOOKING_REPOSITORY) private readonly bookingRepository: IBookingRepository,
+    @Inject(BOOKING_IREPOSITORY) private readonly bookingRepository: IBookingRepository,
     @Inject(CLUB_REPOSITORY) private readonly clubRepository: IClubRepository
   ) {}
  
@@ -113,7 +113,7 @@ export class CreateBookingUseCase {
 
 @Injectable()
 export class GetBookingUseCase {
-  constructor(@Inject(BOOKING_REPOSITORY) private readonly repository: IBookingRepository) {}
+  constructor(@Inject(BOOKING_IREPOSITORY) private readonly repository: IBookingRepository) {}
 
   async execute(id: string): Promise<Booking> {
     const booking = await this.repository.findById(id);
@@ -126,7 +126,7 @@ export class GetBookingUseCase {
 
 @Injectable()
 export class GetAllBookingsClubUseCase {
-  constructor(@Inject(BOOKING_REPOSITORY) private readonly repository: IBookingRepository) {}
+  constructor(@Inject(BOOKING_IREPOSITORY) private readonly repository: IBookingRepository) {}
 
   async execute(clubId: string, query: string): Promise<BookingResDto[]> {
     return await this.repository.RO_FindAllByClubId(clubId, query);
@@ -135,7 +135,7 @@ export class GetAllBookingsClubUseCase {
 
 @Injectable()
 export class GetAllBookingsUserUseCase {
-  constructor(@Inject(BOOKING_REPOSITORY) private readonly repository: IBookingRepository) {}
+  constructor(@Inject(BOOKING_IREPOSITORY) private readonly repository: IBookingRepository) {}
 
   async execute(userId: string/*, query: string*/): Promise<BookingUserResDto[]> {
     return await this.repository.RO_FindAllByUserId(userId);
@@ -146,7 +146,7 @@ export class GetAllBookingsUserUseCase {
 @Injectable()
 export class DeleteBookingUseCase {
   constructor(
-    @Inject(BOOKING_REPOSITORY) private readonly repository: IBookingRepository,
+    @Inject(BOOKING_IREPOSITORY) private readonly repository: IBookingRepository,
     @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
     private readonly getStaffClub: GetClubStaffUseCase
   ) {}
@@ -200,7 +200,7 @@ export class DeleteBookingUseCase {
 @Injectable()
 export class RestoreBookingStatusUseCase {
   constructor(
-    @Inject(BOOKING_REPOSITORY) private readonly bookingRepository: IBookingRepository,
+    @Inject(BOOKING_IREPOSITORY) private readonly bookingRepository: IBookingRepository,
     @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
     private readonly getClubStaffUseCase : GetClubStaffUseCase
   ) {}
@@ -246,7 +246,7 @@ export class RestoreBookingStatusUseCase {
   @Injectable()
   export class AcceptBookingUseCase {
     constructor(
-      @Inject(BOOKING_REPOSITORY) private readonly bookingRepository: IBookingRepository,
+      @Inject(BOOKING_IREPOSITORY) private readonly bookingRepository: IBookingRepository,
       @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
       private readonly getClubStaffUseCase : GetClubStaffUseCase
     ) {}
@@ -274,7 +274,7 @@ export class RestoreBookingStatusUseCase {
 @Injectable()
 export class ChangeBookingUseCase {
   constructor(
-    @Inject(BOOKING_REPOSITORY) private readonly bookingRepository: IBookingRepository,
+    @Inject(BOOKING_IREPOSITORY) private readonly bookingRepository: IBookingRepository,
     @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
   ) {}
 
