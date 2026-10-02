@@ -110,6 +110,7 @@ model Court {
 
   club     Club      @relation(fields: [clubId], references: [id], onDelete: Cascade)
   bookings Booking[]
+  matches       TournamentMatch[]
 
   @@unique([clubId, name])
   @@unique([id, clubId])
@@ -161,48 +162,121 @@ model Token {
 }
 
 
-model Tournament {
-  id            String    @id @default(uuid()) @db.Uuid
-  title         String    @db.VarChar(150)
-  description   String?   @db.Text
-  position      String    @db.VarChar(150)
-  municipality  String    @db.VarChar(32)
-  province      String    @db.VarChar(32)
-  award         String    @db.VarChar(150)
-  startsAt      DateTime  @map("starts_at") @db.Timestamptz
-  endsAt        DateTime  @map("ends_at") @db.Timestamptz
-  timezone      String    @default("Europe/Rome") @db.VarChar(50)
-  maxTeams      Int       @default(8) @map("max_teams")
-  isClosed      Boolean   @default(false) @map("is_closed")
-  isVisible     Boolean   @default(false) @map("is_visible")
-  showTeams     Boolean   @default(false) @map("show_teams")
+  model Tournament {
+    id            String    @id @default(uuid()) @db.Uuid
+    title         String    @db.VarChar(150)
+    description   String?   @db.Text
+    position      String    @db.VarChar(150)
+    municipality  String    @db.VarChar(32)
+    province      String    @db.VarChar(32)
+    award         String    @db.VarChar(150)
+    startsAt      DateTime  @map("starts_at") @db.Timestamptz
+    endsAt        DateTime  @map("ends_at") @db.Timestamptz
+    timezone      String    @default("Europe/Rome") @db.VarChar(50)
+    maxTeams      Int       @default(8) @map("max_teams")
+    isClosed      Boolean   @default(false) @map("is_closed")
+    isVisible     Boolean   @default(false) @map("is_visible")
+    showTeams     Boolean   @default(false) @map("show_teams")
 
-  teams       TournamentTeam[]
+    teams       TournamentTeam[]
+    matches     TournamentMatch[]
 
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
-  
-  @@map("tournaments")
-}
+    createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-model TournamentTeam {
-  id            String     @id @default(uuid()) @db.Uuid
-  tournamentId  String     @map("tournament_id") @db.Uuid
-  tournament    Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+    @@map("tournaments")
+  }
 
-  teamName      String     @map("team_name") @db.VarChar(100)
 
-  player1Id     String     @map("player1_id") @db.Uuid
-  player1       User       @relation("Player1", fields: [player1Id], references: [id])
+  model TournamentTeam {
+    id               String     @id @default(uuid()) @db.Uuid
+    tournamentId     String     @map("tournament_id") @db.Uuid
+    tournament       Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+    
+    teamName         String     @map("team_name") @db.VarChar(100)
+    
+    player1Id        String     @map("player1_id") @db.Uuid
+    player1          User       @relation("Player1", fields: [player1Id], references: [id])
+    
+    player2Id        String?    @map("player2_id") @db.Uuid
+    player2          User?      @relation("Player2", fields: [player2Id], references: [id])
+    player2FName     String?    @map("player2_fname") @db.VarChar(24)
+    player2LName     String?    @map("player2_lname") @db.VarChar(24)
+    player2Phone     String?    @map("player2_phone") @db.VarChar(30)  
 
-  player2Id     String?    @map("player2_id") @db.Uuid
-  player2       User?      @relation("Player2", fields: [player2Id], references: [id])
-  player2FName  String?    @map("player2_fname") @db.VarChar(24)
-  player2LName  String?    @map("player2_lname") @db.VarChar(24)
-  player2Phone  String?    @map("player2_phone") @db.VarChar(30)  
 
-  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+    matchesAsTeam1  TournamentMatch[] @relation("MatchTeam1")
+    matchesAsTeam2  TournamentMatch[] @relation("MatchTeam2")
+    wonMatches      TournamentMatch[] @relation("MatchWinner")
 
-  @@map("tournament_teams")
-}
+    createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+    @@map("tournament_teams")
+  }
+
+
+  //Match
+  enum MatchStatus {
+    SCHEDULED   @map("scheduled")
+    IN_PROGRESS @map("in_progress")
+    COMPLETED   @map("completed")
+    CANCELLED   @map("cancelled")
+
+    @@map("match_status")
+  }
+
+  enum MatchFormat {
+    SINGLE_SET  @map("single_set")
+    BEST_OF_3   @map("best_of_3")
+
+    @@map("match_format")
+  }
+
+  model TournamentMatch {
+    id           String      @id @default(uuid()) @db.Uuid
+    tournamentId String      @map("tournament_id") @db.Uuid
+    courtId      String?     @map("court_id") @db.Uuid
+
+    team1Id      String?     @map("team1_id") @db.Uuid
+    team2Id      String?     @map("team2_id") @db.Uuid
+    winnerTeamId String?     @map("winner_team_id") @db.Uuid
+
+    // Struttura matematica PURA dell'albero
+    round        Int         @map("round")        // 1 = Finale, 2 = Semifinale, 3 = Quarti, ecc.
+    matchOrder   Int         @map("match_order")  // Posizione nel round (0, 1, 2, 3...)
+    format          MatchFormat @default(SINGLE_SET) @map("format")
+
+    status       MatchStatus @default(SCHEDULED) @map("status")
+    scheduledAt  DateTime?   @map("scheduled_at") @db.Timestamptz
+
+    createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt    DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+    // Relazioni
+    tournament   Tournament          @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+    court        Court?              @relation(fields: [courtId], references: [id], onDelete: SetNull)
+    team1        TournamentTeam?     @relation("MatchTeam1", fields: [team1Id], references: [id], onDelete: Cascade)
+    team2        TournamentTeam?     @relation("MatchTeam2", fields: [team2Id], references: [id], onDelete: Cascade)
+    winnerTeam   TournamentTeam?     @relation("MatchWinner", fields: [winnerTeamId], references: [id], onDelete: SetNull)
+
+    sets         TournamentMatchSet[]
+
+    @@unique([tournamentId, round, matchOrder]) // Una sola partita per posizione specifica nel torneo
+    @@index([tournamentId, round])
+    @@map("tournament_matches")
+  }
+
+  model TournamentMatchSet {
+    id          String          @id @default(uuid()) @db.Uuid
+    matchId     String          @map("match_id") @db.Uuid
+    setNumber   Int             @map("set_number") // 1, 2, 3
+    team1Games  Int             @default(0) @map("team1_games")
+    team2Games  Int             @default(0) @map("team2_games")
+    tieBreak    Boolean         @default(false) @map("tie_break")
+
+    match       TournamentMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+    @@unique([matchId, setNumber])
+    @@map("tournament_match_sets")
+  }

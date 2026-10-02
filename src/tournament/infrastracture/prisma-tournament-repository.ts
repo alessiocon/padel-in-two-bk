@@ -2,9 +2,10 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../../database/prisma.service.js';
 import { TournamentRepository } from './../domain/tournament-IRepository.js';
 import { Tournament } from './../domain/tournament.aggregate.js';
-import { TournamentMapper, tournamentSummarySelect } from './prisma-tournament-mapper.js';
+import { tournamentAndUserSelect, TournamentMapper, tournamentSummarySelect } from './prisma-tournament-mapper.js';
 import { TournamentTeam } from '../domain/tournamentTeam.entity.js';
 import { TournamentsResDto, TournamentResDto } from '../presentation/tournament.dto.js';
+import { TournamentMatch } from '../domain/tournamentMatch.entity.js';
 
 @Injectable()
 export class PrismaTournamentRepository implements TournamentRepository {
@@ -13,7 +14,7 @@ export class PrismaTournamentRepository implements TournamentRepository {
   async findById(id: string): Promise<Tournament> {
     const record = await this.prisma.tournament.findUnique({
       where: { id: id},
-      include: { teams: true },
+      include: { teams: true, matches: true },
     });
 
     if (!record) {
@@ -147,6 +148,94 @@ export class PrismaTournamentRepository implements TournamentRepository {
         }
   }
 
+  async saveBracket(tournamentId: string, matches: TournamentMatch[]): Promise<TournamentMatch[]> {
+    try {
+      const savedRecords = await this.prisma.$transaction(async (tx) => {
+        await tx.tournamentMatch.deleteMany({
+          where: { tournamentId },
+        });
+
+        const matchesData = matches.map((match) => TournamentMapper.toTournamentMatchPersistence(match));
+
+        await tx.tournamentMatch.createMany({
+          data: matchesData,
+        });
+
+        return await tx.tournamentMatch.findMany({
+          where: { tournamentId },
+          orderBy: [{ round: 'desc' }, { matchOrder: 'asc' }],
+        });
+      });
+
+      // Riconverte i record di persistenza in entità di dominio
+      return savedRecords.map((record) => TournamentMapper.matchToDomain(record));
+    } catch (error) {
+      // Logga l'errore internamente se necessario, poi lancia l'eccezione
+      throw new BadRequestException('Impossibile salvare il tabellone del torneo');
+    }
+  }
+
+  async updateMatches(matches: TournamentMatch[]): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      for (const match of matches) {
+        const matchPrimitives = match.toPrimitives();
+
+        await tx.tournamentMatch.update({
+          where: { id: matchPrimitives.id },
+          data: {
+            courtId: matchPrimitives.courtId,
+            status: TournamentMapper.DOMAIN_TO_PRISMA_MATCH_STATUS[matchPrimitives.status],
+            team1Id: matchPrimitives.team1Id,
+            team2Id: matchPrimitives.team2Id,
+            winnerTeamId: matchPrimitives.winnerTeamId,
+            round: matchPrimitives.round,
+            matchOrder: matchPrimitives.matchOrder,
+            format: TournamentMapper.DOMAIN_TO_PRISMA_MATCH_FORMAT[matchPrimitives.format],
+            scheduledAt: matchPrimitives.scheduledAt,
+            updatedAt: matchPrimitives.updatedAt,
+          },
+        });
+      }
+    });
+  }
+
+  async updateSetsMatch(match: TournamentMatch): Promise<void> {
+    const primitives = match.toPrimitives();
+    
+    const setsData = primitives.score?.value ?? [];
+
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Strategia "Sostituzione Atomica": elimina i vecchi set associati a questo match
+      await tx.tournamentMatchSet.deleteMany({
+        where: { matchId: primitives.id },
+      });
+       
+      // 2. Inserisce i nuovi set derivati dal dominio se ce ne sono
+      if (setsData.length > 0) {
+        await tx.tournamentMatchSet.createMany({
+          data: setsData.map((set) => ({
+            matchId: primitives.id,
+            setNumber: set.setNumber,
+            team1Games: set.team1Games,
+            team2Games: set.team2Games,
+            tieBreak: set.tieBreak,
+          })),
+        });
+      }
+
+      // 3. Aggiorna il match
+      await tx.tournamentMatch.update({
+          where: { id: primitives.id },
+          data: {
+            status: TournamentMapper.DOMAIN_TO_PRISMA_MATCH_STATUS[primitives.status],
+            winnerTeamId: primitives.winnerTeamId,
+            updatedAt: primitives.updatedAt,
+          },
+        });
+    });
+  }
+
+
 
    async RO_findAll(): Promise<Omit<TournamentsResDto[], "teams">> {
       const records = await this.prisma.tournament.findMany({
@@ -161,13 +250,8 @@ export class PrismaTournamentRepository implements TournamentRepository {
     async RO_findById(id: string): Promise<TournamentResDto> {
 
       const record = await this.prisma.tournament.findUnique({
-        where: { id: id, isVisible: true},
-        include: { teams: {
-          include: {
-            player1: true,
-            player2: true,
-          }
-        } },
+        where: { id, isVisible: true},
+        select: tournamentAndUserSelect,
       });
 
       if (!record) {

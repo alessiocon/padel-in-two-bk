@@ -1,5 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { ArrayMinSize, IsArray, IsBoolean, IsDateString, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPhoneNumber, isString, IsString, IsUUID, Max, MaxLength, Min, ValidateIf, ValidateNested } from "class-validator";
+import { MatchFormat, MatchStatus } from "../domain/tournamentMatch.entity.js";
 
 export class CreateTournamentDto {
   @ApiProperty({ example: 'PadelFlash' })
@@ -71,11 +72,6 @@ export class CreateTournamentDto {
 
 
 export class RegisterTeamsDto{
-    @ApiProperty({ format: 'uuid' })
-    @IsUUID()
-    @IsNotEmpty()
-    tournamentId: string;
-
     @ApiProperty({ 
         type: () => [RegisterTeamDto], 
         description: 'Lista delle squadre da registrare' 
@@ -118,6 +114,65 @@ export class RegisterTeamDto {
     @IsOptional()
     @IsPhoneNumber()
     player2Phone: string | null;
+}
+
+
+
+export class UpdateMatchReqDto{
+
+    @ApiProperty({ format: 'uuid' })
+    @IsUUID()
+    @IsOptional()
+    courtId: string | null;
+  
+    @ApiProperty({ enum: MatchFormat, example: MatchFormat.SINGLE_SET })
+    @IsOptional()
+    format: MatchFormat | null;
+
+    @ApiProperty({ format: 'date-time' })
+    @IsDateString()
+    @IsOptional()
+    scheduledAt: Date | null;
+
+    @ApiProperty({ format: 'uuid' })
+    @IsUUID()
+    @IsOptional()
+    team1Id: string | null;
+
+    @ApiProperty({ format: 'uuid' })
+    @IsUUID()
+    @IsOptional()
+    team2Id: string | null;
+}
+
+export class EndMatchReqDto{
+    @ApiProperty({ 
+        type: () => [SetReqDto], 
+        description: 'Lista sei set fatti' 
+    })
+    @IsArray()
+    @ArrayMinSize(1)
+    @ValidateNested({ each: true })
+    sets: SetReqDto[]
+    
+}
+
+export class SetReqDto {
+    @ApiProperty({ example: 0, minimum: 0, maximum: 12 , required: true })
+    @IsInt()
+    setNumber: number;
+
+    @ApiProperty({ example: 0, minimum: 0, maximum: 12 , required: true })
+    @IsInt()
+    team1Games: number;
+
+    @ApiProperty({ example: 0, minimum: 0, maximum: 12 , required: true })
+    @IsInt()
+    team2Games: number;
+
+    @ApiProperty({ type: Boolean , example: true, default: true})
+    @IsBoolean()
+    tieBreak?: boolean;
 }
 
 export class TournamentsResDto {
@@ -166,6 +221,7 @@ export class TournamentResDto{
     isVisible: boolean;
     showTeams: boolean;
     teams: TournamentTeamResDto[];
+    matches: TournamentMatchResDto[];
 }
 
 export class TournamentTeamResDto{
@@ -187,3 +243,31 @@ export class TournamentTeamPlayerResDto{
     phone: string | null;
     username: string;
 }
+
+export class TournamentMatchResDto{
+    id: string;
+    tournamentId: string;
+    courtId: string | null;
+    courtName: string | null;
+    team1Id: string | null;
+    team2Id: string | null;
+    team1Name: string | null;
+    team2Name: string | null;
+    format: MatchFormat;
+    winnerTeamId: string | null;
+    round: number;
+    matchOrder: number;
+    status: MatchStatus;
+    scheduledAt: Date | null;
+    score?: MatchScoreResDto[] | null;
+}
+
+export class MatchScoreResDto {
+    id: string;
+    setNumber: number;
+    team1Games: number;
+    team2Games: number;
+    tieBreak?: boolean;
+}
+
+

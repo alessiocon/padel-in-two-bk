@@ -1,6 +1,9 @@
 import { DateTime } from 'luxon';
 import { TournamentTeam } from './tournamentTeam.entity.js';
 import { BadRequestException } from '@nestjs/common';
+import { MatchFormat, TournamentMatch, TournamentMatchProps } from './tournamentMatch.entity.js';
+import { MatchScore, SetScoreProps } from './valueObject/matchScore.value.js';
+import { BracketManagerDomainService } from './services/bracket-manager.domain-service.js';
 
 export interface TournamentProps {
   id: string;
@@ -18,6 +21,7 @@ export interface TournamentProps {
   isVisible: boolean;
   showTeams: boolean;
   teams: TournamentTeam[];
+  matches: TournamentMatch[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,7 +32,7 @@ export class Tournament {
     }
 
     public static create(
-        props: Omit<TournamentProps, "id" | "isClosed" | "teams" | "updateAt">,
+        props: Omit<TournamentProps, "id" | "isClosed" | "teams" | "matches"| "updateAt">,
         id = crypto.randomUUID(),
     ): Tournament {
         return new Tournament({
@@ -47,6 +51,7 @@ export class Tournament {
             isVisible: props.isVisible,
             showTeams: props.showTeams,
             teams: [],
+            matches: [],
             createdAt: props.createdAt,
             updatedAt: props.createdAt
         });
@@ -95,6 +100,55 @@ export class Tournament {
     this.props.isClosed = true;
   }
 
+  //TODO: ADDSCORE TO MATCH
+  public updateMatch(input: Omit<TournamentMatchProps, 'tournamentId' | 'round' |'matchOrder' | 'winnerTeamId' | 'status' | 'score' | 'createdAt'>){
+    let match = this.props.matches.find(m => m.id === input.id);
+
+    if(!match){ throw new BadRequestException("Match da modificare non trovato")}
+
+    if(input.team1Id || input.team2Id ){
+      if(input.team1Id && !this.props.teams.find(t => t.id === input.team1Id)){
+        throw new BadRequestException("Il Team 1 non è iscritto al torneo")
+      }
+
+      if(input.team2Id && !this.props.teams.find(t => t.id === input.team2Id)){
+        throw new BadRequestException("Il Team 2 non è iscritto al torneo")
+      }
+     
+      let matchesInRound = this.props.matches.filter(m => m.round === match.round && m.id !== input.id);
+
+      let isTeam1Duplicate = input.team1Id ?  Boolean(matchesInRound.find(m => m.team1Id === input.team1Id || m.team2Id === input.team1Id))  : false
+      let isTeam2Duplicate = input.team2Id ?  Boolean(matchesInRound.find(m => m.team1Id === input.team2Id || m.team2Id === input.team2Id))  : false
+
+      if(isTeam1Duplicate){throw new BadRequestException("Il Team 1 che hai inserito ha già partecipato a questo round") }
+      if(isTeam2Duplicate){throw new BadRequestException("Il Team 2 che hai inserito ha già partecipato a questo round") }
+
+      match.assignTeams(input.team1Id, input.team2Id, input.updatedAt)
+    }
+
+    match.update({courtId: input.courtId, scheduledAt: input.scheduledAt, updatedAt: input.updatedAt})
+  }
+
+  public recordScore(input: {matchId: string, score: SetScoreProps[], updatedAt: Date}) {
+    let match = this.props.matches.find(m => m.id === input.matchId);
+    if(!match){ throw new BadRequestException("Match da modificare non trovato")}
+
+    match.recordScore(input.score, match.format ?? MatchFormat.SINGLE_SET , input.updatedAt)
+  }
+
+  public nextMatch(input: {matchId: string, updatedAt: Date}) : TournamentMatch{
+    let match = this.props.matches.find(m => m.id === input.matchId);
+    if(!match){ throw new BadRequestException("Match da modificare non trovato")}
+
+    const response =  BracketManagerDomainService.getNextMatchSlot(match, this.props.matches)
+    
+    let teams1 = response.slot === "team1" ? match.winnerTeamId: response.targetMatch.team1Id
+    let teams2 = response.slot === "team2" ? match.winnerTeamId: response.targetMatch.team2Id
+    response.targetMatch.assignTeams(teams1, teams2, input.updatedAt);
+
+    return response.targetMatch
+  }
+
   // Getters con esplicito ritorno di null ove previsto
   get id(): string { return this.props.id; }
   get title(): string { return this.props.title; }
@@ -111,6 +165,7 @@ export class Tournament {
   get isVisible(): boolean { return this.props.isVisible; }
   get showTeams(): boolean { return this.props.showTeams; }
   get teams(): TournamentTeam[] { return this.props.teams; }
+  get matches(): TournamentMatch[] { return this.props.matches; }
   get createdAt(): Date { return this.props.createdAt; }
   get updatedAt(): Date { return this.props.updatedAt; }
 
@@ -154,4 +209,10 @@ private static validate(props: TournamentProps): void {
       throw new Error('Tournament end must be after start');
     }
   }
+
+
+
+
+
+
 }

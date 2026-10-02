@@ -6,6 +6,9 @@ import {
   ParseUUIDPipe,
   Post,
   Body,
+  HttpCode,
+  HttpStatus,
+  Patch,
 } from '@nestjs/common';
 import {
   ApiBody,
@@ -20,13 +23,17 @@ import {
 } from '@nestjs/swagger';
 import { Auth } from '../../auth/infrastructure/decorators/auth.decorator.js';
 import { UserRole } from '../../user/domain/user.entity.js';
-import { CreateTournamentDto, RegisterTeamsDto, TournamentsResDto, TournamentsTeamResDto, TournamentResDto } from './tournament.dto.js';
+import { CreateTournamentDto, RegisterTeamsDto, TournamentsResDto, TournamentsTeamResDto, TournamentResDto, UpdateMatchReqDto, EndMatchReqDto } from './tournament.dto.js';
 import { Tournament } from '../domain/tournament.aggregate.js';
 import { TournamentTeam } from '../domain/tournamentTeam.entity.js';
 import { CreateTournamentUseCase } from '../application/create-tournament-use-cases.js';
 import { RegisterTeamsUseCase } from '../application/register-teams-use-cases.js';
 import { GetTournamentUseCases } from '../application/get-tournament-use-cases.js';
 import { GetTournamentsUseCases } from '../application/all-tournament-use-cases.js';
+import { GenerateTournamentBracketUseCase } from '../application/generate-tournament-bracket.use-case.js';
+import { UpdateMatchUseCase } from '../application/update-match-use-cases.js';
+import { EndMatchUseCase } from '../application/end-match-use-cases.js';
+import { NextMatchUseCase } from '../application/next-match-use-cases.js';
 
 
 @ApiTags('tournament')
@@ -37,7 +44,11 @@ export class TournamentController {
     private readonly createTournament: CreateTournamentUseCase,
     private readonly registerTeams: RegisterTeamsUseCase,
     private readonly getTournament: GetTournamentUseCases,
-    private readonly getAllTournament: GetTournamentsUseCases
+    private readonly getAllTournament: GetTournamentsUseCases,
+    private readonly generateTournamentBracket: GenerateTournamentBracketUseCase,
+    private readonly updateTournamentMatch: UpdateMatchUseCase,
+    private readonly endTournamentMatch: EndMatchUseCase,
+    private readonly nextTournamentMatch: NextMatchUseCase,
 
   ) {}
 
@@ -108,12 +119,74 @@ export class TournamentController {
   @Auth(UserRole.ADMIN)
   @ApiOperation({ summary: 'Add teams a tournament' })
   @ApiBody({ type: RegisterTeamsDto })
-  @ApiCreatedResponse({ type: TournamentsResDto })
+  @ApiCreatedResponse({ type: Array<TournamentsTeamResDto> })
   @ApiBadRequestResponse({ description: 'Invalid tournament data' })
   @ApiConflictResponse({ description: 'Tournament name already exists' })
-  async tregisterTeams(@Body() body: RegisterTeamsDto): Promise<TournamentsTeamResDto[]> {
+  async tregisterTeams(
+    @Param('id', new ParseUUIDPipe()) id: string, 
+    @Body() body: RegisterTeamsDto): Promise<TournamentsTeamResDto[]> 
+  {
 
-    return this.toResponseTeams(await this.registerTeams.execute({...body}));
+    return this.toResponseTeams(await this.registerTeams.execute({...body, tournamentId: id}));
+  }
+
+
+  @Post(':id/bracket')
+  @Auth(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Crea la struttura dell\'evento' })
+  @HttpCode(HttpStatus.CREATED)
+  @ApiCreatedResponse({ type: TournamentResDto })
+  public async generateBracket(@Param('id') id: string) {
+    const matches = await this.generateTournamentBracket.execute(id);
+    
+    return matches.map(m => m.toPrimitives());
+  }
+
+  @Patch(':idTorunament/match/:idMatch')
+  @Auth(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Aggiorna un Match' })
+  @HttpCode(HttpStatus.CREATED)
+  @ApiBody({ type: UpdateMatchReqDto })
+  @ApiCreatedResponse({ type: TournamentResDto })
+  public async updateMatch(
+    @Param('idTorunament') idTournament: string,
+    @Param('idMatch') idMatch: string,
+    @Body() input: UpdateMatchReqDto
+  ) : Promise<boolean>{
+
+    await this.updateTournamentMatch.execute(idTournament, idMatch, input);
+    return true;
+    
+  }
+
+  @Patch(':idTorunament/match/:idMatch/end')
+  @Auth(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Crea la struttura dell\'evento' })
+  @HttpCode(HttpStatus.CREATED)
+  @ApiBody({ type: EndMatchReqDto })
+  @ApiCreatedResponse({ type: Boolean })
+  public async endMatch(
+    @Param('idTorunament') idTournament: string,
+    @Param('idMatch') idMatch: string,
+    @Body() input: EndMatchReqDto
+  ) : Promise<boolean>{
+
+    await this.endTournamentMatch.execute(idTournament, idMatch, input.sets);
+    return true;
+  }
+
+  @Patch(':idTorunament/match/:idMatch/next')
+  @Auth(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Passa automaticamente la squadra vincente al match successivo' })
+  @HttpCode(HttpStatus.CREATED)
+  @ApiCreatedResponse({ type: Boolean })
+  public async nextMatch(
+    @Param('idTorunament') idTournament: string,
+    @Param('idMatch') idMatch: string,
+  ) : Promise<boolean>{
+
+    await this.nextTournamentMatch.execute(idTournament, idMatch);
+    return true;
   }
 
 //   @Patch(':id')

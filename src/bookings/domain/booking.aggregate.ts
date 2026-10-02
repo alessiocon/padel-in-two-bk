@@ -1,8 +1,8 @@
 import { BadRequestException } from "@nestjs/common";
 import { BookingPastDateError } from "./booking-errors.js";
 
-export enum BookingStatus { RESERVED = "reserved" ,PENDING = "pending" ,CONFIRMED = "confirmed" ,CANCELLED = "cancelled" };
-export enum BookingCancBy { USER = "user" ,CLUB = "club" };
+export enum BookingStatus { RESERVED = "RESERVED" ,PENDING = "PENDING" ,CONFIRMED = "CONFIRMED" ,CANCELLED = "CANCELLED" };
+export enum BookingCancBy { USER = "USER" ,CLUB = "CLUB" };
 
 export type BookingProps = {
   id: string;

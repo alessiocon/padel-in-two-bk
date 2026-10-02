@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import { Court, CourtProps} from './court.entity.js';
 
-export enum ClubStatus { ACTIVE = "active", INACTIVE = "inactive" }
+export enum ClubStatus { ACTIVE = "ACTIVE", INACTIVE = "INACTIVE" }
 
 export type ClubProps = {
   id: string;
