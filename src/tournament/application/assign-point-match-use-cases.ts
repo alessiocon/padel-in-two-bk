@@ -1,17 +1,19 @@
-import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { TOURNAMENT_IREPOSITORY, type TournamentRepository } from '../domain/tournament-IRepository.js';
 import { CLOCK_SERVICE, type IClockService } from '../../service/interface/IClockService.js';
 import { SetScoreProps } from '../domain/valueObject/matchScore.value.js';
+import { TournamentMatchResDto } from '../presentation/tournament.dto.js';
+import { TournamentMapper } from '../infrastracture/prisma-tournament-mapper.js';
 
 
 @Injectable()
-export class EndMatchUseCase {
+export class AssignPointsMatchUseCase {
   constructor(
     @Inject(TOURNAMENT_IREPOSITORY) private readonly tournamentRepository: TournamentRepository,
     @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
   ) {}
 
-  public async execute(tournamentId: string, matchId: string, score: SetScoreProps[]): Promise<boolean> {
+  public async execute(tournamentId: string, matchId: string, score: SetScoreProps[]): Promise<TournamentMatchResDto> {
     const time = this.clock.now()
     // 1. Recupera il torneo per verificare che esista e prendere le squadre
     const tournament = await this.tournamentRepository.findById(tournamentId);
@@ -31,6 +33,6 @@ export class EndMatchUseCase {
     })
 
     await this.tournamentRepository.updateSetsMatch(match);
-    return true;
+    return TournamentMapper.tournamentMatchToDto(tournament, match.id)
   }
 }

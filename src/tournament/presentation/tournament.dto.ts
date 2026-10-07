@@ -123,41 +123,45 @@ export class UpdateMatchReqDto{
     @ApiProperty({ format: 'uuid' })
     @IsUUID()
     @IsOptional()
-    courtId: string | null;
+    courtId?: string | null;
   
     @ApiProperty({ enum: MatchFormat, example: MatchFormat.SINGLE_SET })
     @IsOptional()
-    format: MatchFormat | null;
+    format?: MatchFormat;
+
+    @ApiProperty({ enum: MatchStatus, example: MatchFormat.SINGLE_SET })
+    @IsOptional()
+    status?: MatchStatus;
 
     @ApiProperty({ format: 'date-time' })
     @IsDateString()
     @IsOptional()
-    scheduledAt: Date | null;
+    scheduledAt?: Date;
 
     @ApiProperty({ format: 'uuid' })
     @IsUUID()
     @IsOptional()
-    team1Id: string | null;
+    team1Id?: string | null;
 
     @ApiProperty({ format: 'uuid' })
     @IsUUID()
     @IsOptional()
-    team2Id: string | null;
+    team2Id?: string | null;
 }
 
-export class EndMatchReqDto{
+export class SetPointsmatchReqDto{
     @ApiProperty({ 
-        type: () => [SetReqDto], 
-        description: 'Lista sei set fatti' 
+        type: () => [PointsReqDto], 
+        description: 'Lista dei set fatti' 
     })
     @IsArray()
     @ArrayMinSize(1)
     @ValidateNested({ each: true })
-    sets: SetReqDto[]
+    sets: PointsReqDto[]
     
 }
 
-export class SetReqDto {
+export class PointsReqDto {
     @ApiProperty({ example: 0, minimum: 0, maximum: 12 , required: true })
     @IsInt()
     setNumber: number;
@@ -190,7 +194,6 @@ export class TournamentsResDto {
     isClosed: boolean;
     isVisible: boolean;
     showTeams: boolean;
-    teams: TournamentsTeamResDto[];
 }
 
 
@@ -219,9 +222,7 @@ export class TournamentResDto{
     maxTeams: number;
     isClosed: boolean;
     isVisible: boolean;
-    showTeams: boolean;
     teams: TournamentTeamResDto[];
-    matches: TournamentMatchResDto[];
 }
 
 export class TournamentTeamResDto{
@@ -259,15 +260,12 @@ export class TournamentMatchResDto{
     matchOrder: number;
     status: MatchStatus;
     scheduledAt: Date | null;
-    score?: MatchScoreResDto[] | null;
+    sets?: MatchScoreResDto[] | null;
 }
 
 export class MatchScoreResDto {
-    id: string;
     setNumber: number;
     team1Games: number;
     team2Games: number;
     tieBreak?: boolean;
 }
-
-

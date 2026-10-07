@@ -1,8 +1,8 @@
 import { DateTime } from 'luxon';
 import { TournamentTeam } from './tournamentTeam.entity.js';
 import { BadRequestException } from '@nestjs/common';
-import { MatchFormat, TournamentMatch, TournamentMatchProps } from './tournamentMatch.entity.js';
-import { MatchScore, SetScoreProps } from './valueObject/matchScore.value.js';
+import { MatchFormat, MatchStatus, TournamentMatch, TournamentMatchProps } from './tournamentMatch.entity.js';
+import { SetScoreProps } from './valueObject/matchScore.value.js';
 import { BracketManagerDomainService } from './services/bracket-manager.domain-service.js';
 
 export interface TournamentProps {
@@ -100,11 +100,23 @@ export class Tournament {
     this.props.isClosed = true;
   }
 
-  //TODO: ADDSCORE TO MATCH
-  public updateMatch(input: Omit<TournamentMatchProps, 'tournamentId' | 'round' |'matchOrder' | 'winnerTeamId' | 'status' | 'score' | 'createdAt'>){
-    let match = this.props.matches.find(m => m.id === input.id);
+  public updateMatch(input: {
+    id: string, 
+    courtId?: string | null,
+    team1Id?: string| null, 
+    team2Id?: string| null,
+    format?: string,
+    scheduledAt?: Date,
+    status?: MatchStatus,
+    updatedAt: Date,
+  }){
 
+    let match = this.props.matches.find(m => m.id === input.id);
     if(!match){ throw new BadRequestException("Match da modificare non trovato")}
+
+    if(input.status){
+      this.chanegStatusMatch(match, input.updatedAt, input.status);
+    }
 
     if(input.team1Id || input.team2Id ){
       if(input.team1Id && !this.props.teams.find(t => t.id === input.team1Id)){
@@ -123,10 +135,13 @@ export class Tournament {
       if(isTeam1Duplicate){throw new BadRequestException("Il Team 1 che hai inserito ha già partecipato a questo round") }
       if(isTeam2Duplicate){throw new BadRequestException("Il Team 2 che hai inserito ha già partecipato a questo round") }
 
-      match.assignTeams(input.team1Id, input.team2Id, input.updatedAt)
+      const team1ToUpdate = input.team1Id === undefined ? match.team1Id :  input.team1Id;
+      const team2ToUpdate = input.team2Id === undefined ? match.team2Id :  input.team2Id;
+
+      match.assignTeams(team1ToUpdate, team2ToUpdate, input.updatedAt)
     }
 
-    match.update({courtId: input.courtId, scheduledAt: input.scheduledAt, updatedAt: input.updatedAt})
+    match.update({courtId: input.courtId, format: match.format, updatedAt: input.updatedAt})
   }
 
   public recordScore(input: {matchId: string, score: SetScoreProps[], updatedAt: Date}) {
@@ -139,14 +154,40 @@ export class Tournament {
   public nextMatch(input: {matchId: string, updatedAt: Date}) : TournamentMatch{
     let match = this.props.matches.find(m => m.id === input.matchId);
     if(!match){ throw new BadRequestException("Match da modificare non trovato")}
+    if(match.status !== MatchStatus.COMPLETED){
+      throw new BadRequestException("Competa prima il match inserendo i set")
+    }
 
-    const response =  BracketManagerDomainService.getNextMatchSlot(match, this.props.matches)
-    
-    let teams1 = response.slot === "team1" ? match.winnerTeamId: response.targetMatch.team1Id
-    let teams2 = response.slot === "team2" ? match.winnerTeamId: response.targetMatch.team2Id
-    response.targetMatch.assignTeams(teams1, teams2, input.updatedAt);
+    const {targetMatch, slot} =  BracketManagerDomainService.getNextMatchSlot(match, this.props.matches);
+    if(!targetMatch){
+      throw new BadRequestException("Prossimo match insesistente")
+    };
 
-    return response.targetMatch
+    let teams1 = slot === "team1" ? match.winnerTeamId: targetMatch.team1Id
+    let teams2 = slot === "team2" ? match.winnerTeamId: targetMatch.team2Id
+    if(targetMatch.status !== MatchStatus.SCHEDULED){
+      throw new BadRequestException("Il prossimo match è già in corso o competato")
+    }
+
+    targetMatch.assignTeams(teams1, teams2, input.updatedAt);
+    return targetMatch
+  }
+
+
+  private chanegStatusMatch(match: TournamentMatch, updatedAt: Date, status: MatchStatus){
+    const {targetMatch } =  BracketManagerDomainService.getNextMatchSlot(match, this.props.matches);
+    let isNextMatchStarted = targetMatch && targetMatch.status !== MatchStatus.SCHEDULED && targetMatch.status !== MatchStatus.CANCELLED;
+
+    if(status === MatchStatus.IN_PROGRESS){
+      match.start(updatedAt);
+    }
+
+    if(status === MatchStatus.SCHEDULED) {
+      if(isNextMatchStarted){
+        throw new BadRequestException("Non puoi assegnare lo stato scheduled dato che il prossimo match è già in corso o completato")
+      }
+      match.schedule(updatedAt);
+    }
   }
 
   // Getters con esplicito ritorno di null ove previsto

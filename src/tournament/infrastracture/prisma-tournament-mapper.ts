@@ -9,7 +9,7 @@ import {
 } from '@prisma/client';
 import { Tournament } from './../domain/tournament.aggregate.js';
 import { TournamentTeam } from './../domain/tournamentTeam.entity.js';
-import { TournamentsResDto, TournamentTeamResDto, TournamentResDto, TournamentMatchResDto } from '../presentation/tournament.dto.js';
+import { TournamentsResDto, TournamentTeamResDto, TournamentResDto, TournamentMatchResDto, MatchScoreResDto } from '../presentation/tournament.dto.js';
 import { MatchStatus, TournamentMatch , MatchFormat} from '../domain/tournamentMatch.entity.js';
 import { MatchScore, SetScoreProps } from '../domain/valueObject/matchScore.value.js';
 
@@ -21,16 +21,12 @@ export type PrismaTournamentWithRelations = PrismaTournament & {
   })[];
 };
 
-export type PrismaTournamentSummarySelect = Prisma.TournamentGetPayload<{
-  select: typeof tournamentSummarySelect;
+
+export type PrismaTournamentsSelect = Prisma.TournamentGetPayload<{
+  select: typeof toTournamentsSelect;
 }>;
 
-export type PrismaTournamentAndUserSelect = Prisma.TournamentGetPayload<{
-  select: typeof tournamentAndUserSelect;
-}>;
-
-
-export const tournamentSummarySelect = Prisma.validator<Prisma.TournamentSelect>()({
+export const toTournamentsSelect = Prisma.validator<Prisma.TournamentSelect>()({
   id: true,
   title: true,
   description: true,
@@ -47,7 +43,14 @@ export const tournamentSummarySelect = Prisma.validator<Prisma.TournamentSelect>
   showTeams: true
 });
 
-export const tournamentAndUserSelect = Prisma.validator<Prisma.TournamentSelect>()({
+
+
+export type PrismaTournamentSelect = Prisma.TournamentGetPayload<{
+  select: typeof toTournamentSelect;
+}>;
+
+
+export const toTournamentSelect = Prisma.validator<Prisma.TournamentSelect>()({
   id: true,
   title: true,
   description: true,
@@ -89,40 +92,74 @@ export const tournamentAndUserSelect = Prisma.validator<Prisma.TournamentSelect>
       },
     },
   },
-  matches: {
+});
+
+
+
+export type PrismaTournamentMatchSelect = Prisma.TournamentMatchGetPayload<{
+  select: typeof toMatchDtoSelect;
+}>;
+
+export const toMatchDtoSelect = Prisma.validator<Prisma.TournamentMatchSelect>()({
+  id: true,
+  tournamentId: true,
+  team1Id: true,
+  team2Id: true,
+  format: true,
+  winnerTeamId: true,
+  round: true,
+  matchOrder: true,
+  status: true,
+  scheduledAt: true,
+  sets: true,
+  courtId: true,
+  court: {
     select: {
-      id: true,
-      tournamentId: true,
-      courtId: true,
-      team1Id: true,
-      team2Id: true,
-      format: true,
-      winnerTeamId: true,
-      round: true,
-      matchOrder: true,
-      status: true,
-      scheduledAt: true,
-      sets: true,
-      court: {
-        select: {
-          name: true,
-        },
-      },
-      team1: {
-        select: {
-          teamName: true,
-        },
-      },
-      team2: {
-        select: {
-          teamName: true,
-        },
-      },
-    },
+      name: true,
+    }
+  },
+  team1: {
+    select: {
+      teamName: true,
+    }
+  },
+  team2: {
+    select: {
+      teamName: true,
+    }
   },
 });
 
 
+export type PrismaTournamentTeamSelect = Prisma.TournamentTeamGetPayload<{
+  select: typeof toTeamDtoSelect;
+}>;
+
+export const toTeamDtoSelect = Prisma.validator<Prisma.TournamentTeamSelect>()({
+  id: true,
+  teamName: true,
+  player1Id: true,
+  player2Id: true,
+  player2FName: true,
+  player2LName: true,
+  player2Phone: true,
+  player1: {
+    select: {
+      firstName: true,
+      lastName: true,
+      phone: true,
+      username: true,
+    },
+  },
+  player2: {
+    select: {
+      firstName: true,
+      lastName: true,
+      phone: true,
+      username: true,
+    },
+  },
+});
 
 export class TournamentMapper {
 
@@ -194,35 +231,7 @@ export class TournamentMapper {
 
     raw.matches?.forEach(match => {
 
-      let scoreProsp : SetScoreProps[] = []
-      
-      match.sets?.forEach(set => {
-       scoreProsp.push({
-          setNumber: set.setNumber,
-          team1Games: set.team1Games,
-          team2Games: set.team2Games,
-          tieBreak: set.tieBreak
-       })
-      });
-      const setScores =  scoreProsp.length === 0 ? null: MatchScore.create(scoreProsp, this.PRISMA_TO_DOMAIN_MATCH_FORMAT[match.format])
-     
-
-      matches.push(TournamentMatch.reconstitute({
-        id: match.id,
-        courtId: match.courtId,
-        tournamentId: match.tournamentId,
-        status: this.PRISMA_TO_DOMAIN_MATCH_STATUS[match.status],
-        team1Id:match.team1Id,
-        team2Id:match.team2Id,
-        winnerTeamId:match.winnerTeamId,
-        round:match.round,
-        format: this.PRISMA_TO_DOMAIN_MATCH_FORMAT[match.format],
-        matchOrder:match.matchOrder,
-        score: setScores, 
-        scheduledAt:match.scheduledAt,
-        createdAt:match.createdAt,
-        updatedAt:match.updatedAt
-      }))
+      matches.push(this.prismaMatchToDomain(match));
     })
 
 
@@ -312,7 +321,121 @@ export class TournamentMapper {
     };
   }
 
-  public static matchToDomain(raw: PrismaTournamentMatch): TournamentMatch {
+
+
+
+
+
+
+  //DTO CONTOLLATI
+
+  public static prismaTournamentToDto(raw: PrismaTournamentSelect) : TournamentResDto {
+
+    //TODO: VALUTARE SE Eliminare lo showteams e inserirlo per ogni team cosi da non caricarlo in memoria e poi filtrare
+    let teams : TournamentTeamResDto[] = []
+    if(raw.showTeams){
+      raw.teams.forEach(team => teams.push(this.prismaTeamToDto(team)))
+    }
+
+    //  let matches : TournamentMatchResDto[] = []
+    //  raw.matches.forEach(match => matches.push(this.PrismaMatchToDto(match)))
+
+    return {
+      id: raw.id,
+      title: raw.title,
+      description: raw.description,
+      position: raw.position,
+      municipality: raw.municipality,
+      province: raw.province,
+      award: raw.award,
+      startsAt: raw.startsAt,
+      endsAt: raw.endsAt,
+      timezone: raw.timezone,
+      maxTeams: raw.maxTeams,
+      isClosed: raw.isClosed,
+      isVisible: raw.isVisible,
+      teams,
+      // matches
+    }
+  }
+
+  public static prismaTournamentsToDto(raw: PrismaTournamentsSelect) : TournamentsResDto {
+
+    return {
+      id: raw.id,
+      title: raw.title,
+      description: raw.description,
+      position: raw.position,
+      municipality: raw.municipality,
+      province: raw.province,
+      award: raw.award,
+      startsAt: raw.startsAt,
+      endsAt: raw.endsAt,
+      timezone: raw.timezone,
+      maxTeams: raw.maxTeams,
+      isClosed: raw.isClosed,
+      isVisible: raw.isVisible,
+      showTeams: raw.showTeams,
+    }
+  }
+
+  public static tournamentMatchToDto(raw: Tournament, matchid: string) : TournamentMatchResDto {
+    const tournament = raw.toPrimitives()
+    let match =  tournament.matches.find(x => x.id === matchid);
+    if(!match) throw new Error("impossibile mappare il match con id " + matchid);
+
+    let team1 : TournamentTeam | null = null;
+    if(match.team1Id){
+      team1 =   tournament.teams.find(x => x.id === match.team1Id) ?? null;
+      if(!team1) throw new Error("impossibile trovare il primo team con id" + match.team1Id);
+    }
+
+    let team2 : TournamentTeam | null = null;
+    if(match.team2Id){
+      team2 =   tournament.teams.find(x => x.id === match.team2Id) ?? null;
+      if(!team2) throw new Error("impossibile trovare il secondo team con id" + match.team1Id);
+    }
+   
+
+   
+    if(!team2) throw new Error("impossibile trovare il secondo team con id" + match.team2Id);
+
+    return {
+        id: match.id,
+        tournamentId: tournament.id,
+        courtId: match.courtId,
+        courtName: null, //TODO: DA SISTEMARE QUANDO AVRO LA LOGICA PER L'ASSOCAZIONE CAMPO TORNEO
+        team1Id: match.team1Id,
+        team1Name: team1 ? team1.teamName : null,
+        team2Id: match.team2Id,
+        team2Name: team2.teamName ?? null,
+        winnerTeamId: match.winnerTeamId,
+        round: match.round,
+        matchOrder: match.matchOrder,
+        format: this.PRISMA_TO_DOMAIN_MATCH_FORMAT[match.format],
+        status: this.PRISMA_TO_DOMAIN_MATCH_STATUS[match.status],
+        scheduledAt: match.scheduledAt,
+        sets: match.score?.value,
+      };
+  }
+
+  public static prismaMatchToDomain(raw: PrismaTournamentMatch & { sets?: PrismaTournamentMatchSet[]}) : TournamentMatch 
+  {
+    let scoreProsp : SetScoreProps[] = []
+      
+    raw.sets?.forEach(set => {
+      scoreProsp.push({
+        setNumber: set.setNumber,
+        team1Games: set.team1Games,
+        team2Games: set.team2Games,
+        tieBreak: set.tieBreak
+      })
+    });
+
+    const setScores =  scoreProsp.length === 0 
+      ? null
+      : MatchScore.create(scoreProsp, this.PRISMA_TO_DOMAIN_MATCH_FORMAT[raw.format])
+
     return TournamentMatch.reconstitute({
       id: raw.id,
       tournamentId: raw.tournamentId,
@@ -325,113 +448,67 @@ export class TournamentMapper {
       format: this.PRISMA_TO_DOMAIN_MATCH_FORMAT[raw.format],
       status: this.PRISMA_TO_DOMAIN_MATCH_STATUS[raw.status],
       scheduledAt: raw.scheduledAt,
-      // Se hai salvato il punteggio (JSON o relazioni di set), qui lo ricostruisci nel Value Object
-      score: null, 
+      score: setScores,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
     });
   }
 
+  public static PrismaMatchToDto(raw: PrismaTournamentMatchSelect ) : TournamentMatchResDto {
 
-  public static toSummaryDto(raw: PrismaTournamentSummarySelect) : TournamentsResDto {
+  let sets : MatchScoreResDto[] = []
+    raw.sets?.forEach(set => {
+      sets.push({
+        setNumber: set.setNumber,
+        team1Games: set.team1Games,
+        team2Games: set.team2Games,
+        tieBreak: set.tieBreak
+      })
+  });
 
-    return {
-      id: raw.id,
-      title: raw.title,
-      description: raw.description,
-      position: raw.position,
-      municipality: raw.municipality,
-      province: raw.province,
-      award: raw.award,
-      startsAt: raw.startsAt,
-      endsAt: raw.endsAt,
-      timezone: raw.timezone,
-      maxTeams: raw.maxTeams,
-      isClosed: raw.isClosed,
-      isVisible: raw.isVisible,
-      showTeams: raw.showTeams,
-      teams: []
-    }
+  return {
+    id: raw.id,
+    tournamentId: raw.tournamentId,
+    courtId: raw.courtId,
+    courtName: raw.court?.name ?? null,
+    team1Id: raw.team1Id,
+    team1Name: raw.team1?.teamName ?? null,
+    team2Id: raw.team2Id,
+    team2Name: raw.team2?.teamName ?? null,
+    winnerTeamId: raw.winnerTeamId,
+    round: raw.round,
+    matchOrder: raw.matchOrder,
+    format: this.PRISMA_TO_DOMAIN_MATCH_FORMAT[raw.format],
+    status: this.PRISMA_TO_DOMAIN_MATCH_STATUS[raw.status],
+    scheduledAt: raw.scheduledAt,
+    sets: sets,
+  };
   }
 
-  public static toTournamentWithUserDto(raw: PrismaTournamentAndUserSelect) : TournamentResDto {
-
-    let teams : TournamentTeamResDto[] = []
-    if(raw.showTeams){
-      raw.teams.forEach(team => {
-        teams.push({
-          id: team.id,
-          tournamentId: team.id,
-          player1Id: team.player1Id,
-          player2Id: team.player2Id,
-          player2FName: team.player2FName,
-          player2LName: team.player2LName,
-          player2Phone: team.player2Phone,
-          teamName: team.teamName,
-          player1: {
-            firstName: team.player1.firstName,
-            lastName: team.player1.lastName,
-            phone: team.player1.phone,
-            username: team.player1.username
-            
-          },
-          player2: !team.player2 ? null : {
-            firstName: team.player2.firstName,
-            lastName: team.player2.lastName,
-            phone: team.player2.phone,
-            username: team.player2.username
-          }
-        })
-      })
-    }
-
-     let matches : TournamentMatchResDto[] = []
-     raw.matches.forEach(match => {
-      matches.push({
-        id: match.id,
-        tournamentId: match.tournamentId,
-        courtId: match.courtId,
-        courtName: match.court?.name ?? null,
-        team1Id: match.team1Id,
-        team2Id: match.team2Id,
-        team1Name: match.team1?.teamName ?? null,
-        team2Name: match.team2?.teamName ?? null,
-        format: this.PRISMA_TO_DOMAIN_MATCH_FORMAT[match.format],
-        winnerTeamId: match.winnerTeamId,
-        round: match.round,
-        matchOrder: match.matchOrder,
-        status: this.PRISMA_TO_DOMAIN_MATCH_STATUS[match.status],
-        scheduledAt: match.scheduledAt,
-        score: match.sets.map((set) => {
-         return {
-            id: set.id,
-            setNumber: set.setNumber,
-            team1Games: set.team1Games,
-            team2Games: set.team2Games,
-            tieBreak: set.tieBreak
-         }
-        })
-       
-      })
-     })
+  public static prismaTeamToDto(raw: PrismaTournamentTeamSelect ) : TournamentTeamResDto {
 
     return {
       id: raw.id,
-      title: raw.title,
-      description: raw.description,
-      position: raw.position,
-      municipality: raw.municipality,
-      province: raw.province,
-      award: raw.award,
-      startsAt: raw.startsAt,
-      endsAt: raw.endsAt,
-      timezone: raw.timezone,
-      maxTeams: raw.maxTeams,
-      isClosed: raw.isClosed,
-      isVisible: raw.isVisible,
-      showTeams: raw.showTeams,
-      teams,
-      matches
+      tournamentId: raw.id,
+      player1Id: raw.player1Id,
+      player2Id: raw.player2Id,
+      player2FName: raw.player2FName,
+      player2LName: raw.player2LName,
+      player2Phone: raw.player2Phone,
+      teamName: raw.teamName,
+      player1: {
+        firstName: raw.player1.firstName,
+        lastName: raw.player1.lastName,
+        phone: raw.player1.phone,
+        username: raw.player1.username
+        
+      },
+      player2: !raw.player2 ? null : {
+        firstName: raw.player2.firstName,
+        lastName: raw.player2.lastName,
+        phone: raw.player2.phone,
+        username: raw.player2.username
+      }
     }
   }
 }

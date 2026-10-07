@@ -2,9 +2,9 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../../database/prisma.service.js';
 import { TournamentRepository } from './../domain/tournament-IRepository.js';
 import { Tournament } from './../domain/tournament.aggregate.js';
-import { tournamentAndUserSelect, TournamentMapper, tournamentSummarySelect } from './prisma-tournament-mapper.js';
+import { toMatchDtoSelect, toTournamentSelect, TournamentMapper, toTournamentsSelect, toTeamDtoSelect } from './prisma-tournament-mapper.js';
 import { TournamentTeam } from '../domain/tournamentTeam.entity.js';
-import { TournamentsResDto, TournamentResDto } from '../presentation/tournament.dto.js';
+import { TournamentsResDto, TournamentResDto, TournamentMatchResDto, TournamentTeamResDto } from '../presentation/tournament.dto.js';
 import { TournamentMatch } from '../domain/tournamentMatch.entity.js';
 
 @Injectable()
@@ -32,56 +32,6 @@ export class PrismaTournamentRepository implements TournamentRepository {
 
     return records.map((record) => TournamentMapper.toDomain(record));
   }
-
-//   async save(tournament: Tournament): Promise<void> {
-//     const data = {
-//       title: tournament.title,
-//       description: tournament.description,
-//       startsAt: tournament.startsAt,
-//       endsAt: tournament.endsAt,
-//       maxTeams: tournament.maxTeams,
-//       isClosed: tournament.isClosed,
-//       createdAt: tournament.createdAt,
-//     };
-
-    
-//     await this.prisma.$transaction(async (tx) => {
-//         await tx.tournament.upsert({
-//             where: { id: tournament.id },
-//             create: {
-//             id: tournament.id,
-//             ...data,
-//             },
-//             update: data,
-//         });
-
-//         await Promise.all(
-//             tournament.teams.map((team) =>
-//             tx.tournamentTeam.upsert({
-//                 where: { id: team.id },
-//                 create: {
-//                 id: team.id,
-//                 tournamentId: tournament.id,
-//                 teamName: team.teamName,
-//                 player1Id: team.player1Id,
-//                 player2Id: team.player2Id,
-//                 player2FName: team.player2FName,
-//                 player2LName: team.player2LName,
-//                 player2Phone: team.player2Phone,
-//                 createdAt: team.createdAt,
-//                 },
-//                 update: {
-//                 teamName: team.teamName,
-//                 player2Id: team.player2Id,
-//                 player2FName: team.player2FName,
-//                 player2LName: team.player2LName,
-//                 player2Phone: team.player2Phone,
-//                 },
-//             })
-//             )
-//         );
-//     });
-//   }
 
   async create(tournament: Tournament): Promise<Tournament> {
 
@@ -168,16 +118,15 @@ export class PrismaTournamentRepository implements TournamentRepository {
       });
 
       // Riconverte i record di persistenza in entità di dominio
-      return savedRecords.map((record) => TournamentMapper.matchToDomain(record));
+      return savedRecords.map((record) => TournamentMapper.prismaMatchToDomain(record));
     } catch (error) {
       // Logga l'errore internamente se necessario, poi lancia l'eccezione
       throw new BadRequestException('Impossibile salvare il tabellone del torneo');
     }
   }
 
-  async updateMatches(matches: TournamentMatch[]): Promise<void> {
+  async updateMatch(match: TournamentMatch): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
-      for (const match of matches) {
         const matchPrimitives = match.toPrimitives();
 
         await tx.tournamentMatch.update({
@@ -195,9 +144,17 @@ export class PrismaTournamentRepository implements TournamentRepository {
             updatedAt: matchPrimitives.updatedAt,
           },
         });
+    });
+  }
+
+  async updateMatches(matches: TournamentMatch[]): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      for (const match of matches) {
+          await this.updateMatch(match)
       }
     });
   }
+
 
   async updateSetsMatch(match: TournamentMatch): Promise<void> {
     const primitives = match.toPrimitives();
@@ -233,32 +190,57 @@ export class PrismaTournamentRepository implements TournamentRepository {
           },
         });
     });
+
   }
 
 
 
-   async RO_findAll(): Promise<Omit<TournamentsResDto[], "teams">> {
-      const records = await this.prisma.tournament.findMany({
-        where: {isVisible: true},
-        orderBy: { createdAt: 'asc' },
-        select: tournamentSummarySelect,
-      });
+  async RO_tournament_findAll(): Promise<TournamentsResDto[]> {
+    const records = await this.prisma.tournament.findMany({
+      where: {isVisible: true},
+      orderBy: { createdAt: 'asc' },
+      select: toTournamentsSelect,
+    });
   
-      return records.map((record) => TournamentMapper.toSummaryDto(record));
-    }
+    return records.map((record) => TournamentMapper.prismaTournamentsToDto(record));
+  }
 
-    async RO_findById(id: string): Promise<TournamentResDto> {
-
-      const record = await this.prisma.tournament.findUnique({
-        where: { id, isVisible: true},
-        select: tournamentAndUserSelect,
-      });
-
-      if (!record) {
-        throw new NotFoundException("Torneo non trovato");
-      }
-
-      return TournamentMapper.toTournamentWithUserDto(record);
+  async RO_tournament_findById(id: string): Promise<TournamentResDto> {
+  
+    const record = await this.prisma.tournament.findUnique({
+      where: { id, isVisible: true},
+      select: toTournamentSelect,
+    });
+  
+    if (!record) {
+      throw new NotFoundException("Torneo non trovato");
     }
   
+    return TournamentMapper.prismaTournamentToDto(record);
+  }
+
+
+  async RO_match_findAll(idTournament: string, idMatches?: string[]): Promise<TournamentMatchResDto[]>{
+
+    const records = await this.prisma.tournamentMatch.findMany({
+      where: {
+        tournamentId: idTournament,
+        ...(idMatches && idMatches.length > 0 ? { id: { in: idMatches } } : {}),
+      },
+      select: toMatchDtoSelect,
+      orderBy: [ { round: 'asc' }, { matchOrder: 'asc' }]
+    });
+
+    return records.map(match => TournamentMapper.PrismaMatchToDto(match));
+  }
+
+  async RO_team_findAll(idTournament: string): Promise<TournamentTeamResDto[]>{
+
+    const records = await this.prisma.tournamentTeam.findMany({
+      where: {tournamentId: idTournament},
+      select: toTeamDtoSelect
+    });
+
+    return records.map(match => TournamentMapper.prismaTeamToDto(match));
+  }
 }

@@ -1,6 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
 import { TournamentMatch } from './../tournamentMatch.entity.js';
-import { TournamentTeam } from './../tournamentTeam.entity.js';
 
 export class BracketManagerDomainService {
 
@@ -12,7 +11,7 @@ export class BracketManagerDomainService {
   public static getNextMatchSlot(
     completedMatch: TournamentMatch,
     allMatches: TournamentMatch[]
-  ): { targetMatch: TournamentMatch; slot: 'team1' | 'team2' } {
+  ): { targetMatch: TournamentMatch | null; slot: 'team1' | 'team2' } {
     // Trova qual è il round massimo (la finale) presente in tutto il tabellone
     const maxRound = Math.max(...allMatches.map((m) => m.round));
 
@@ -29,12 +28,9 @@ export class BracketManagerDomainService {
       (m) => m.round === nextRound && m.matchOrder === nextMatchOrder
     );
 
-    if (!targetMatch) {
-      throw new BadRequestException(`Target match for round ${nextRound} and matchOrder ${nextMatchOrder} not found.`);
-    }
 
     const slot = completedMatch.matchOrder % 2 === 0 ? 'team1' : 'team2';
 
-    return { targetMatch, slot };
+    return { targetMatch: targetMatch ?? null, slot };
   }
 }
