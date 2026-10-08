@@ -15,9 +15,8 @@ export class BracketManagerDomainService {
     // Trova qual è il round massimo (la finale) presente in tutto il tabellone
     const maxRound = Math.max(...allMatches.map((m) => m.round));
 
-    // Se siamo già alla Finale, non c'è un turno successivo
     if (completedMatch.round >= maxRound) {
-        throw new BadRequestException(`Non è possibile calcolare il prossimo match per la finale`);
+        return {targetMatch: null, slot: "team1"}
     }
 
     // Il round successivo ha un numero incrementato (es. da 1 a 2, o da 2 a 3)

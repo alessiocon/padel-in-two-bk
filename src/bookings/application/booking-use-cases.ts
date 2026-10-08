@@ -162,7 +162,7 @@ export class DeleteBookingUseCase {
       if(!staff.includes(input.userId)) { throw new ForbiddenException("Autorizzazione non concessa");}
       
     }else{
-      if (booking.userId !== input.userId || booking.status === BookingStatus.RESERVED) 
+      if (booking.userId !== input.userId && booking.status === BookingStatus.RESERVED) 
         { throw new ForbiddenException("Autorizzazione non concessa"); }
     }
 
