@@ -1,23 +1,24 @@
 import { Inject, Injectable,NotFoundException,ForbiddenException, BadRequestException } from '@nestjs/common';
 import { Booking, BookingCancBy, BookingStatus, UpdateBookingProps } from '../domain/booking.aggregate.js';
 import { BookingNotFoundError } from '../domain/booking-errors.js';
-import { BOOKING_IREPOSITORY, type IBookingRepository } from '../domain/booking-IRepository.js';
+import { BOOKING_IREPOSITORY, type IBookingRepository } from '../infrastructure/booking-IRepository.js';
 import { CLUB_REPOSITORY, type IClubRepository } from '../../clubs/domain/club-IRepository.js';
 import { CLOCK_SERVICE, type IClockService } from '../../service/interface/IClockService.js';
 import { BookingResDto, BookingUserResDto } from '../presentation/booking.dto.js';
 import { BookingMapper } from '../infrastructure/prisma-booking-mapper.js';
 import { GetClubStaffUseCase, GetClubUseCase } from '../../clubs/application/club-use-cases.js';
+import { CreateBookingUseCase } from './create-booking-use-cases.js';
 
 
-export type CreateBookingInput = {
-  clubId: string;
-  userId: string;
-  courtId: string;
-  startsAt: string;
-  description?: string;
-  slots?: number;
-  status: BookingStatus;
-};
+// export type CreateBookingInput = {
+//   clubId: string;
+//   userId: string;
+//   courtId: string;
+//   startsAt: string;
+//   description?: string;
+//   slots?: number;
+//   status: BookingStatus;
+// };
 
 export type UpdateBookingInput = {
   clubId: string;
@@ -30,86 +31,88 @@ type DeleteBookingByClubInput = { bookingId: string, userId: string, reason: str
 
 
 
-@Injectable()
-export class CreateBookingUseCase {
-  constructor(
-    @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
-    @Inject(BOOKING_IREPOSITORY) private readonly bookingRepository: IBookingRepository,
-    @Inject(CLUB_REPOSITORY) private readonly clubRepository: IClubRepository
-  ) {}
+// @Injectable()
+// export class CreateBookingUseCase {
+//   constructor(
+//     @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
+//     @Inject(BOOKING_IREPOSITORY) private readonly bookingRepository: IBookingRepository,
+//     @Inject(CLUB_REPOSITORY) private readonly clubRepository: IClubRepository
+//   ) {}
  
-  async execute(input: CreateBookingInput): Promise<BookingResDto> {
+//   async execute(input: CreateBookingInput): Promise<BookingResDto> {
 
-    const club = await this.clubRepository.findById(input.clubId);
-    if (!club) {
-      throw new NotFoundException(`Club with ID ${input.clubId} does not exist.`);
-    }
+//     const club = await this.clubRepository.findById(input.clubId);
+//     if (!club) {
+//       throw new NotFoundException(`Club with ID ${input.clubId} does not exist.`);
+//     }
 
-    //TODO SOLO IN FASE DI DEMO C'è questa limitazione di una prenotazione a settimana
-    if(club.ownerId != input.userId){
-      await this.countWeekForUser(input.startsAt, input.clubId, input.userId)
-    }
+//     //TODO SOLO IN FASE DI DEMO C'è questa limitazione di una prenotazione a settimana
+//     if(club.ownerId != input.userId){
+//       await this.countWeekForUser(input.startsAt, input.clubId, input.userId)
+//     }
     
-    const endsAtUTC = club.calculateBookingEnd(input.startsAt, input.slots ?? 1);
-    const court = club.courts.find(court => court.id === input.courtId);
-    if(!court) throw new BadRequestException("il campo selezionato non esiste")
-    court.validateSlotOperatingHours(input.startsAt, endsAtUTC.toISOString(), club.timezone, club.openingTime, club.closingTime, club.slotDurationMinutes);
-    const [startAtUTC] = club.convertInTimeZone([input.startsAt]);
+//     const endsAtUTC = club.calculateBookingEnd(input.startsAt, input.slots ?? 1);
+//     const court = club.courts.find(court => court.id === input.courtId);
+//     if(!court) throw new BadRequestException("il campo selezionato non esiste")
+//     court.validateSlotOperatingHours(input.startsAt, endsAtUTC.toISOString(), club.timezone, club.openingTime, club.closingTime, club.slotDurationMinutes);
+//     const [startAtUTC] = club.convertInTimeZone([input.startsAt]);
     
     
-    if (!court) {
-      throw new NotFoundException(`Court with ID ${input.courtId} does not exist in club ${input.clubId}.`);
-    }
+//     if (!court) {
+//       throw new NotFoundException(`Court with ID ${input.courtId} does not exist in club ${input.clubId}.`);
+//     }
 
-    await this.bookingRepository.hasOverlappingBooking(input.courtId, startAtUTC, endsAtUTC);
+//     await this.bookingRepository.hasOverlappingBooking(input.courtId, startAtUTC, endsAtUTC);
     
-    var now = this.clock.now();
+//     var now = this.clock.now();
 
-    const bookingEntity = Booking.create({
-      clubId: input.clubId,
-      courtId: input.courtId,
-      userId: input.userId,
-      description: input.description,
-      startsAt: startAtUTC,
-      endsAt: endsAtUTC,
-      createdAt: now,
-      status: club.ownerId != input.userId ? BookingStatus.PENDING : BookingStatus.RESERVED 
-    });
+//     const bookingEntity = Booking.create({
+//       clubId: input.clubId,
+//       courtId: input.courtId,
+//       createdById: input.userId,
+//       description: input.description,
+//       auditLogs: [],
+//       teams: [],
+//       startsAt: startAtUTC,
+//       endsAt: endsAtUTC,
+//       createdAt: now,
+//       status: club.ownerId != input.userId ? BookingStatus.PENDING : BookingStatus.RESERVED 
+//     });
 
-    const savedBooking = await this.bookingRepository.create(bookingEntity);
-    return BookingMapper.toResDtoFromDomain(savedBooking);
-  }
+//     const savedBooking = await this.bookingRepository.create(bookingEntity);
+//     return BookingMapper.toResDtoFromDomain(savedBooking);
+//   }
 
 
-  private async countWeekForUser(startsAt: string, clubId:string, userId: string){
-    const targetDate = new Date(startsAt);
+//   private async countWeekForUser(startsAt: string, clubId:string, userId: string){
+//     const targetDate = new Date(startsAt);
     
-    // Calcolo inizio (Lunedì 00:00) e fine (Domenica 23:59:59) della settimana di targetDate
-    const startOfWeek = new Date(targetDate);
-    const day = startOfWeek.getDay(); // 0 = Domenica, 1 = Lunedì, ...
-    const diffToMonday = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
-    startOfWeek.setDate(diffToMonday);
-    startOfWeek.setHours(0, 0, 0, 0);
+//     // Calcolo inizio (Lunedì 00:00) e fine (Domenica 23:59:59) della settimana di targetDate
+//     const startOfWeek = new Date(targetDate);
+//     const day = startOfWeek.getDay(); // 0 = Domenica, 1 = Lunedì, ...
+//     const diffToMonday = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
+//     startOfWeek.setDate(diffToMonday);
+//     startOfWeek.setHours(0, 0, 0, 0);
 
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
+//     const endOfWeek = new Date(startOfWeek);
+//     endOfWeek.setDate(startOfWeek.getDate() + 6);
+//     endOfWeek.setHours(23, 59, 59, 999);
 
-    // Query al repository per contare le prenotazioni attive nel range per quel club
-    const existingCount = await this.bookingRepository.countUserBookingsInWeek(
-      clubId,
-      userId,
-      startOfWeek,
-      endOfWeek,
-    );
+//     // Query al repository per contare le prenotazioni attive nel range per quel club
+//     const existingCount = await this.bookingRepository.countUserBookingsInWeek(
+//       clubId,
+//       userId,
+//       startOfWeek,
+//       endOfWeek,
+//     );
 
-    if (existingCount >= 1) {
-      throw new BadRequestException(
-        "In questa demo: puoi effettuare al massimo 1 prenotazione a settimana per ciascun club."
-      );
-    }
-  }
-}
+//     if (existingCount >= 1) {
+//       throw new BadRequestException(
+//         "In questa demo: puoi effettuare al massimo 1 prenotazione a settimana per ciascun club."
+//       );
+//     }
+//   }
+// }
 
 @Injectable()
 export class GetBookingUseCase {
@@ -162,7 +165,7 @@ export class DeleteBookingUseCase {
       if(!staff.includes(input.userId)) { throw new ForbiddenException("Autorizzazione non concessa");}
       
     }else{
-      if (booking.userId !== input.userId && booking.status === BookingStatus.RESERVED) 
+      if (booking.createdById !== input.userId && booking.status === BookingStatus.RESERVED) 
         { throw new ForbiddenException("Autorizzazione non concessa"); }
     }
 
@@ -220,10 +223,10 @@ export class RestoreBookingStatusUseCase {
       if (!staff.includes(userId)) { throw new ForbiddenException("Autorizzazione non concessa") }
       if (booking.cancBy !== BookingCancBy.CLUB) { throw new ForbiddenException("La cancellazione è partita dall'utente non puoi ripristinarla");}
 
-      status = staff.includes(booking.userId) ? BookingStatus.RESERVED : BookingStatus.CONFIRMED;
+      status = staff.includes(booking.createdById) ? BookingStatus.RESERVED : BookingStatus.CONFIRMED;
 
     }else{
-      if (booking.userId !== userId || booking.cancBy !== BookingCancBy.USER) { throw new ForbiddenException("Autorizzazione non concessa");}
+      if (booking.createdById !== userId || booking.cancBy !== BookingCancBy.USER) { throw new ForbiddenException("Autorizzazione non concessa");}
       status = booking.cancPostConfirm ? BookingStatus.CONFIRMED : BookingStatus.PENDING;
     }
 

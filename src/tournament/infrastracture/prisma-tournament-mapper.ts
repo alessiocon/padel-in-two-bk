@@ -337,9 +337,6 @@ export class TournamentMapper {
       raw.teams.forEach(team => teams.push(this.prismaTeamToDto(team)))
     }
 
-    //  let matches : TournamentMatchResDto[] = []
-    //  raw.matches.forEach(match => matches.push(this.PrismaMatchToDto(match)))
-
     return {
       id: raw.id,
       title: raw.title,
@@ -355,7 +352,6 @@ export class TournamentMapper {
       isClosed: raw.isClosed,
       isVisible: raw.isVisible,
       teams,
-      // matches
     }
   }
 

@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { BOOKING_USE_CASES } from './application/booking-use-cases.js';
-import { BOOKING_IREPOSITORY } from './domain/booking-IRepository.js';
+import { BOOKING_IREPOSITORY } from './infrastructure/booking-IRepository.js';
 import { PrismaBookingRepository } from './infrastructure/prisma-booking-repository.js';
 import { BookingsController } from './presentation/bookings.controller.js';
 import { CLUB_REPOSITORY } from '../clubs/domain/club-IRepository.js';

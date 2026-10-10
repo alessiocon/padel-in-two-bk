@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
-import { Booking } from '../domain/booking.aggregate.js';
+import { Booking, BookingStatus } from '../domain/booking.aggregate.js';
 import { BookingConflictError, BookingCourtNotFoundError } from '../domain/booking-errors.js';
-import type { IBookingRepository } from '../domain/booking-IRepository.js';
+import type { IBookingRepository } from '../infrastructure/booking-IRepository.js';
 import { BookingMapper, bookingSummarySelect, bookingUserSummarySelect } from './prisma-booking-mapper.js';
 import { BookingResDto, BookingUserResDto } from '../presentation/booking.dto.js';
 import { Prisma } from '@prisma/client';
@@ -11,44 +11,59 @@ import { Prisma } from '@prisma/client';
 export class PrismaBookingRepository implements IBookingRepository {
   constructor(private readonly prisma: PrismaService) {}
   
-
   async create(booking: Booking): Promise<Booking> {
     const court = await this.prisma.court.findUnique({ where: { id: booking.courtId } });
     if (!court || court.clubId !== booking.clubId) {
       throw new BookingCourtNotFoundError(booking.courtId);
     }
 
-    var bookingPrimitive = BookingMapper.toPersistence(booking)
+   const bookingPrimitive = BookingMapper.domainBookingToPersistence(booking);
+
     try {
       const record = await this.prisma.booking.create({
-        data: {
-          id: booking.id,
-          clubId: booking.clubId,
-          courtId: booking.courtId,
-          userId: booking.userId,
-          description: bookingPrimitive.description,
-          startsAt: booking.startsAt,
-          endsAt: booking.endsAt,
-          status: BookingMapper.toPrismaStatus(booking.status),
-          createdAt: bookingPrimitive.createdAt,
-          updatedAt: bookingPrimitive.updatedAt,
+        data: bookingPrimitive,
+        include: {
+          teams: {
+            include: {
+              players: true,
+            },
+          },
+          logs: true,
         },
       });
-      return BookingMapper.toDomain(record);
+
+      return BookingMapper.prismaBookingToDomain(record);
     } catch (error) {
       if (this.isOverlapError(error)) {
         throw new BookingConflictError();
       }
+      console.log((error as any).message)
       throw error;
     }
   }
 
   async findById(id: string): Promise<Booking> {
-    const record = await this.prisma.booking.findFirst({ where: { id } });
-    if(!record) throw new NotFoundException("Ordine non trovato")
-    return BookingMapper.toDomain(record)
+    const record = await this.prisma.booking.findFirst({
+      where: { id },
+      include: {
+        teams: {
+          include: {
+            players: true,
+          },
+        },
+        logs: true,
+      },
+    });
+
+    if (!record) {
+      throw new NotFoundException("Prenotazione non trovata");
+    }
+
+    return BookingMapper.prismaBookingToDomain(record);
   }
 
+
+  //QUESTO é IN READONLY
   async findAllByClubId(clubId: string, query: string): Promise<Booking[]> {
     const whereCondition: any = { clubId };
 
@@ -61,8 +76,19 @@ export class PrismaBookingRepository implements IBookingRepository {
     };
 
 
-    const records = await this.prisma.booking.findMany({ where: whereCondition, orderBy: {startsAt: 'asc'} });
-    return records.map((record) => BookingMapper.toDomain(record));
+    const records = await this.prisma.booking.findMany({ 
+      where: whereCondition, 
+      include: {
+        teams: {
+          include: {
+            players: true,
+          },
+        },
+        logs: true,
+      },
+      orderBy: {startsAt: 'asc'} });
+
+    return records.map((record) => BookingMapper.prismaBookingToDomain(record));
   }
 
   async hasOverlappingBooking(
@@ -88,10 +114,10 @@ export class PrismaBookingRepository implements IBookingRepository {
     return ;
   }
 
+  //TODO: migliorare la logica di UPDATE perche attualmente non aggiorna
   async update(booking: Booking): Promise<Booking> {
     const data = BookingMapper.toPersistence(booking);
     try {
-      // 2. Esegue l'update filtrando per l'ID della prenotazione
       const updatedRecord = await this.prisma.booking.update({
         where: { id: booking.id },
         data: {
@@ -100,16 +126,23 @@ export class PrismaBookingRepository implements IBookingRepository {
           endsAt: data.endsAt,
           status: data.status,
           updatedAt: data.updatedAt,
-
           cancBy: data.cancBy,
           cancAt: data.cancAt,
-          cancPostConfirm: data.cancPostConfirm ,
+          cancPostConfirm: data.cancPostConfirm,
           cancReason: data.cancReason,
+        },
+        include: {
+          teams: {
+            include: {
+              players: true,
+            },
+          },
+          logs: true,
         },
       });
 
-      // 3. Riconverte il record modificato da Prisma nell'entità di Dominio
-      return BookingMapper.toDomain(updatedRecord);
+      // 2. Riconverte il record completo nell'entità di Dominio
+      return BookingMapper.prismaBookingToDomain(updatedRecord);
     } catch (error) {
       // Intercetta eventuali violazioni dei vincoli di sovrapposizione a livello DB (Exclusion Constraint / Trigger)
       if (this.isOverlapError(error)) {
@@ -138,15 +171,15 @@ export class PrismaBookingRepository implements IBookingRepository {
 
   async countUserBookingsInWeek(
     clubId: string,
-    userId: string,
+    createdById: string,
     from: Date,
     to: Date
   ): Promise<number> {
     return this.prisma.booking.count({
       where: {
         clubId: clubId,
-        userId: userId,
-        status: { notIn: ["CANCELLED"] },
+        createdById: createdById,
+        status: { notIn: [BookingStatus.CANCELLED] },
         startsAt: {
           gte: from,
           lte: to,
@@ -180,12 +213,12 @@ export class PrismaBookingRepository implements IBookingRepository {
 
 
 
-  async RO_FindAllByUserId(userId: string/*, dateQuery: string*/): Promise<BookingUserResDto[]> {
+  async RO_FindAllByUserId(createdById: string/*, dateQuery: string*/): Promise<BookingUserResDto[]> {
     // const startOfDay = new Date(`${dateQuery}T00:00:00.000Z`);
     // const endOfDay = new Date(`${dateQuery}T23:59:59.999Z`);
 
     const whereCondition: Prisma.BookingWhereInput = {
-      userId
+      createdById
       // startsAt: {
       //   gte: startOfDay,
       //   lte: endOfDay,

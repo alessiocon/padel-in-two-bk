@@ -1,26 +1,31 @@
 import { BadRequestException } from "@nestjs/common";
 import { BookingPastDateError } from "./booking-errors.js";
+import { BookingTeam } from "./entity/booking.team.entity.js";
+import { BookingAuditLog as BookingLog } from "./valueObject/booking.auditLog.value.js";
 
 export enum BookingStatus { RESERVED = "RESERVED" ,PENDING = "PENDING" ,CONFIRMED = "CONFIRMED" ,CANCELLED = "CANCELLED" };
 export enum BookingCancBy { USER = "USER" ,CLUB = "CLUB" };
 
 export type BookingProps = {
-  id: string;
-  clubId: string;
-  courtId: string;
-  userId: string;
-  description?: string;
-  startsAt: Date;
-  endsAt: Date;
-  status: BookingStatus;
+  readonly id: string;
+  readonly clubId: string;
+  readonly courtId: string;
+  readonly createdById: string;
+  readonly description?: string;
+  readonly startsAt: Date;
+  readonly endsAt: Date;
+  readonly status: BookingStatus;
 
-  cancBy: BookingCancBy | null;
-  cancAt: Date | null;
-  cancPostConfirm: boolean | null;
-  cancReason: string | null;
+  readonly teams: ReadonlyArray<BookingTeam>;
+  readonly logs: ReadonlyArray<BookingLog>;
 
-  createdAt: Date;
-  updatedAt: Date;
+  readonly cancBy: BookingCancBy | null;
+  readonly cancAt: Date | null;
+  readonly cancPostConfirm: boolean | null;
+  readonly cancReason: string | null;
+
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
 };
 
 export type UpdateBookingProps = {
@@ -37,7 +42,6 @@ export class Booking {
     input: Omit<BookingProps, 'id' | 'updatedAt' | 'cancBy' | 'cancAt' | 'cancPostConfirm' | 'cancReason'>,
     id = crypto.randomUUID(),
   ): Booking {
-
     if (input.startsAt < input.createdAt) {
         throw new BookingPastDateError(); // Eccezione di dominio custom
     }
@@ -46,11 +50,13 @@ export class Booking {
       id,
       clubId: input.clubId,
       courtId: input.courtId,
-      userId: input.userId,
+      createdById: input.createdById,
       description: input.description,
       startsAt: input.startsAt,
       endsAt: input.endsAt,
       status: input.status,
+      teams: input.teams ?? [],
+      logs: input.logs ?? [],
 
       cancBy: null,
       cancPostConfirm: null,
@@ -63,18 +69,17 @@ export class Booking {
   }
 
   static reconstitute(props: BookingProps): Booking {
-    return new Booking({ 
-      ...props, 
-      startsAt: new Date(props.startsAt), 
-      endsAt: new Date(props.endsAt) });
+    return new Booking(props);
   }
 
   get id(): string { return this.props.id; }
   get clubId(): string { return this.props.clubId; }
   get courtId(): string { return this.props.courtId; }
-  get userId(): string {return this.props.userId}
+  get createdById(): string {return this.props.createdById}
   get description() : string|undefined {return this.props.description}
   get startsAt(): Date { return new Date(this.props.startsAt); }
+  public get teams(): ReadonlyArray<BookingTeam> { return this.props.teams; }
+  public get logs(): ReadonlyArray<BookingLog> { return this.props.logs; }
 
   get cancBy(): BookingCancBy|null { return this.props.cancBy; }
   get cancPostConfirm(): boolean|null { return this.props.cancPostConfirm; }
@@ -84,12 +89,28 @@ export class Booking {
   get endsAt(): Date { return new Date(this.props.endsAt); }
   get status(): BookingStatus { return this.props.status; }
 
+  public addTeam(team: BookingTeam, updateAt: Date): Booking {
+    return new Booking({
+      ...this.props,
+      teams: [...this.props.teams, team],
+      updatedAt: updateAt,
+    });
+  }
+
+  public addAuditLog(log: BookingLog, updateAt: Date): Booking {
+    return new Booking({
+      ...this.props,
+      logs: [...this.props.logs, log],
+      updatedAt: updateAt,
+    });
+  }
+
 
   updateDetails(changes: UpdateBookingProps): void {
 
     const updatedProps: BookingProps = {
       ...this.props,
-      description: changes.description || this.description,
+      description: changes.description ?? this.description,
       updatedAt: changes.updateDate,
     };
 
@@ -126,14 +147,18 @@ export class Booking {
   overlaps(other: Booking): boolean {
       return (
       this.courtId === other.courtId &&
-      // this.isOccupying() &&
-      // other.isOccupying() &&
       this.startsAt < other.endsAt &&
       this.endsAt > other.startsAt
     );
   }
 
-  toPrimitives(): BookingProps { return { ...this.props } }
+  public toPrimitives() { 
+    return { 
+      ...this.props,
+      teams: this.props.teams.map(t => t.toPrimitives()),
+      auditLogs: this.props.logs.map(l => l.toPrimitives()),
+    }; 
+  }
 
   private static validate(props: BookingProps): void {
     if (!props.clubId || !props.courtId) {

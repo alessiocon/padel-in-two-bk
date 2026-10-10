@@ -23,11 +23,12 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { CreateBookingUseCase, GetBookingUseCase, GetAllBookingsClubUseCase, ChangeBookingUseCase, GetAllBookingsUserUseCase, DeleteBookingUseCase, RestoreBookingStatusUseCase, AcceptBookingUseCase } from '../application/booking-use-cases.js';
+import { GetBookingUseCase, GetAllBookingsClubUseCase, ChangeBookingUseCase, GetAllBookingsUserUseCase, DeleteBookingUseCase, RestoreBookingStatusUseCase, AcceptBookingUseCase } from '../application/booking-use-cases.js';
 import { BookingConflictError, BookingCourtNotFoundError, BookingNotFoundError } from '../domain/booking-errors.js';
 import { Booking, BookingStatus } from '../domain/booking.aggregate.js';
-import { BookingResponseDto, BookingResDto, CreateBookingDto, UpdateBookingDto, BookingUserResDto, DeleteBookingDto, RestoreBookingStatusDto } from './booking.dto.js';
+import { BookingResponseDto, BookingResDto, UpdateBookingDto, BookingUserResDto, DeleteBookingDto, RestoreBookingStatusDto, CreateBookingDto } from './booking.dto.js';
 import { Auth } from '../../auth/infrastructure/decorators/auth.decorator.js';
+import { CreateBookingUseCase } from '../application/create-booking-use-cases.js';
 
 @ApiTags('bookings')
 @Controller('bookings')
@@ -57,7 +58,8 @@ export class BookingsController {
     try {
       const booking = await this.createBooking.execute({ ...body,
         clubId: clubId,
-        userId: req.user.id,
+        createdById: req.user.id,
+        username: req.user.username,
         status: BookingStatus.PENDING
       });
       return booking;

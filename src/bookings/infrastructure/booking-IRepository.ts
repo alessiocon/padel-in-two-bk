@@ -1,5 +1,5 @@
+import { Booking } from '../domain/booking.aggregate.js';
 import { BookingResDto, BookingUserResDto } from '../presentation/booking.dto.js';
-import type { Booking, BookingStatus } from './booking.aggregate.js';
 
 export const BOOKING_IREPOSITORY = Symbol('BOOKING_REPOSITORY');
 

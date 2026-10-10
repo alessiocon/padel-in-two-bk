@@ -67,10 +67,12 @@ model User {
   deletedAt         DateTime? @map("deleted_at") @db.Timestamptz
 
   // Relazioni
-  bookings Booking[]
-  clubs    Club[]    @relation("ClubOwner")
-  teamsAsPlayer1 TournamentTeam[] @relation("Player1")
-  teamsAsPlayer2 TournamentTeam[] @relation("Player2")
+  clubs             Club[]            @relation("ClubOwner")
+  teamsAsPlayer1    TournamentTeam[]  @relation("Player1")
+  teamsAsPlayer2    TournamentTeam[]  @relation("Player2")
+  createdBookings   Booking[]         @relation("BookingCreator")
+  bookingPlayers    BookingPlayer[]   @relation("BookingPlayer")
+  auditLogs         BookingAuditLog[] @relation("UserAuditLogs")
 
   @@map("users")
 }
@@ -108,8 +110,8 @@ model Court {
   isIndoor      Boolean       @default(false) @map("is_indoor")
   offsetMinutes Int           @default(0) @map("offset_minutes")
 
-  club     Club      @relation(fields: [clubId], references: [id], onDelete: Cascade)
-  bookings Booking[]
+  club          Club          @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  bookings      Booking[]
   matches       TournamentMatch[]
 
   @@unique([clubId, name])
@@ -119,34 +121,110 @@ model Court {
 }
 
 model Booking {
-  id                String            @id @default(uuid()) @db.Uuid
-  clubId            String            @map("club_id") @db.Uuid
-  courtId           String            @map("court_id") @db.Uuid
-  userId            String            @map("user_id") @db.Uuid
-  description       String?           @db.VarChar(255)
+  id                String                @id @default(uuid()) @db.Uuid
+  clubId            String                @map("club_id") @db.Uuid
+  courtId           String                @map("court_id") @db.Uuid
+  createdById       String                @map("created_by_user_id") @db.Uuid 
+  
+  description       String?               @db.VarChar(255)
 
-  startsAt          DateTime          @map("starts_at") @db.Timestamptz
-  endsAt            DateTime          @map("ends_at") @db.Timestamptz
-  status            BookingStatus     @default(RESERVED)
+  startsAt          DateTime              @map("starts_at") @db.Timestamptz
+  endsAt            DateTime              @map("ends_at") @db.Timestamptz
+  status            BookingStatus         @default(RESERVED)
+         
+  cancBy            BookingCancBy?        @map("cancelled_by")       
+  cancAt            DateTime?             @map("cancelled_at")       
+  cancPostConfirm   Boolean?              @map("cancelled_post_confirm")
+  cancReason        String?               @db.VarChar(255) @map("cancellation_reason")
 
-  cancBy            BookingCancBy?    @map("cancelled_by")       
-  cancAt            DateTime?         @map("cancelled_at")       
-  cancPostConfirm   Boolean?          @map("cancelled_post_confirm")
-  cancReason        String?           @db.VarChar(255) @map("cancellation_reason")
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz
 
-  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz
-
-  club              Club              @relation(fields: [clubId], references: [id], onDelete: Cascade)
-  court             Court             @relation(fields: [courtId, clubId], references: [id, clubId], onDelete: Cascade)
-  user              User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  club              Club                  @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  court             Court                 @relation(fields: [courtId, clubId], references: [id, clubId], onDelete: Cascade)
+  createdBy         User                  @relation("BookingCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  teams             BookingTeam[]         @relation("BookingTeam")
+  logs              BookingAuditLog[]     @relation("BookingAuditLog")
 
   @@unique([id, clubId])
   @@index([clubId, startsAt, endsAt])
   @@index([courtId, startsAt, endsAt])
-  @@index([userId])
+  @@index([createdById])
   @@map("bookings")
 }
+
+
+model BookingTeam {
+  id          String            @id @default(uuid()) @db.Uuid
+  bookingId   String            @map("booking_id") @db.Uuid
+ 
+  teamNumber  Int               @map("team_number") // Es. 1 (Team di casa) o 2 (Team ospite)
+  teamName    String            @map("team_name") @db.VarChar(50)
+
+  players     BookingPlayer[]   @relation("BookingTeam")
+  booking     Booking           @relation("BookingTeam",fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("booking_teams")
+}
+
+enum BookingPlayerStatus {
+  PENDING 
+  ACCEPTED
+  DECLINED
+  REMOVED 
+}
+
+model BookingPlayer {
+  id          String                @id @default(uuid()) @db.Uuid
+  teamId      String                @map("team_id") @db.Uuid
+  team        BookingTeam           @relation("BookingTeam", fields: [teamId], references: [id], onDelete: Cascade)
+  
+  userId      String?               @map("user_id") @db.Uuid // Utente registrato (opzionale)
+  user        User?                 @relation("BookingPlayer", fields: [userId], references: [id], onDelete: SetNull)
+
+  status      BookingPlayerStatus   @default(PENDING) @map("status")
+
+  firstName   String?               @map("first_name") @db.VarChar(24)
+  lastName    String?               @map("last_name") @db.VarChar(24)
+  phone       String?               @map("phone") @db.VarChar(30)
+
+  @@index([userId])
+  @@map("booking_players")
+}
+
+
+enum BookingEventType {
+  CREATED
+  PLAYER_JOINED
+  PLAYER_LEFT
+  STATUS_CHANGED
+  CANCELLED
+
+  @@map("booking_event_type")
+}
+
+model BookingAuditLog {
+  id          String            @id @default(uuid()) @db.Uuid
+  bookingId   String            @map("booking_id") @db.Uuid
+  
+
+  userId      String?          @map("user_id") @db.Uuid
+  
+
+  eventType   BookingEventType  @map("event_type")
+  message     String            @db.VarChar(255)
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  booking     Booking           @relation("BookingAuditLog",fields: [bookingId], references: [id], onDelete: Cascade)
+  user        User?             @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([bookingId])
+  @@index([userId])
+  @@map("booking_audit_logs")
+}
+
+
 
 model Token {
   id          String    @id @default(uuid()) @db.Uuid
