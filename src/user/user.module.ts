@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { UserController } from './presentation/user.controller.js';
 import { USER_REPOSITORY } from './domain/user.repository.interface.js';
-import { UserPrismaRepository } from './infrastructure/user.prisma.repository.js';
+import { UserPrismaRepository } from './infrastructure/prisma.user.repository.js';
 import { USER_USE_CASES } from './application/user.use-cases.js';
 import { userForgotPasswordEvent, userRegisteredEvent } from './domain/user-events.js';
 

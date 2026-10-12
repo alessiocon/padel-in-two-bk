@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
 import { IUserRepository } from '../domain/user.repository.interface.js';
 import { User, UserProps, UserRole } from '../domain/user.entity.js';
-import {User as PrismaUser} from '@prisma/client';
+import {Prisma, User as PrismaUser} from '@prisma/client';
+import { UserSearchListResDto, UserSearchListDto } from '../presentation/user.dto.js';
+import { usersListUseCaseProps } from '../application/user.list.use-cases.js';
+import { userListSelect } from './prisma.user.mapper.js';
 
 @Injectable()
 export class UserPrismaRepository implements IUserRepository {
@@ -62,5 +65,30 @@ export class UserPrismaRepository implements IUserRepository {
       deleteAt: record.deletedAt
     }
     return User.reconstitute(props);
+  }
+
+
+
+  async findListRO(search: usersListUseCaseProps) : Promise<UserSearchListResDto[]>{
+    const whereCondition: Prisma.UserWhereInput = {
+        deletedAt: null,
+        NOT: {id: search.userSearchedId}
+        
+    };
+
+    if (search.username && search.username.trim() !== "") {
+      whereCondition.username = {
+        startsWith: search.username.trim(),
+        mode: 'insensitive',
+      };
+    }
+
+    const users = await this.prisma.user.findMany({
+      where: whereCondition,
+      select: userListSelect,
+      take: 5
+    });
+
+    return users
   }
 }

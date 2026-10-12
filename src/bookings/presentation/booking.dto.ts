@@ -204,7 +204,7 @@ export class BookingResDto {
     endsAt: Date;
     status: BookingStatus;
     teams: BookingTeamResDto[];
-    auditLogs: BookingAuditLogResDto[];
+    logs: BookingLogResDto[];
 
     cancBy: BookingCancBy | null;
     cancAt: Date | null;
@@ -232,35 +232,47 @@ export class BookingPlayerResDto{
   phone: string | null;
 }
 
-export class BookingAuditLogResDto{
+export class BookingLogResDto{
   eventType: BookingEventType;
   message: string;
   username: string | null;
-  createdAt: Date;
+  createdAt: string;
 }
-
-
-
-
-
-
-
-
 
 
 
 
 export class BookingUserResDto {
     id: string;
-    courtId: string;
     clubId: string;
+    clubName: string;
+
+    courtId: string;
     courtName: string;
+    isCourtIndoor: boolean;
+
     position: string;
     status: BookingStatus;
     description: string;
     startsAt: string;
     endsAt: string;
     isIndoor: boolean;
+
+    createdBy: {
+        id: string,
+        username: string,
+        firstName: string,
+        lastName: string,
+    } | null;
+    teams: BookingTeamResDto[];
+    logs: BookingLogResDto[];
+
+    cancBy: BookingCancBy | null;
+    cancAt: Date | null;
+    cancPostConfirm: boolean | null;
+    cancReason: string | null;
+
+    createdAt: Date;
 }
 
 export class DeleteBookingDto{

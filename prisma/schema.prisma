@@ -60,7 +60,7 @@ model User {
   lastName          String    @map("last_name") @db.VarChar(100)
   username          String    @unique @db.VarChar(50)
   isEmailVerified   Boolean   @default(false) @map("is_email_verified")
-  phone             String?   @unique @db.VarChar(30) @map("phone")
+  phone             String    @unique @db.VarChar(30) @map("phone")
   role              UserRole  @default(USER)
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
@@ -196,6 +196,7 @@ model BookingPlayer {
 
 enum BookingEventType {
   CREATED
+  INSERT
   PLAYER_JOINED
   PLAYER_LEFT
   STATUS_CHANGED

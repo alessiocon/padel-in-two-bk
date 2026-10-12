@@ -7,6 +7,7 @@ import { UserNotFoundError } from '../domain/user-errors.js';
 import { CLOCK_SERVICE, type IClockService } from '../../service/interface/IClockService.js';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { userRegisteredEvent } from '../domain/user-events.js';
+import { usersListUseCase } from './user.list.use-cases.js';
 
 
 @Injectable()
@@ -104,5 +105,6 @@ export const USER_USE_CASES = [
   CreateUserUseCase,
   GetUserByEmailUseCase,
   GetUserByIdUseCase,
-  updateUserUseCase
+  updateUserUseCase,
+  usersListUseCase
 ];

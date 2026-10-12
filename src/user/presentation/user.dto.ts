@@ -55,3 +55,20 @@ export class UserResponseDto{
   @ApiProperty({ example: "User" })
   role: UserRole;
 }
+
+
+export class UserSearchListDto{
+  @ApiProperty({ type: String, example: "Mario" })
+  @IsString()
+  @MaxLength(50)
+  username?: string;
+}
+
+export class UserSearchListResDto
+{
+  id: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+  phone: string;
+}

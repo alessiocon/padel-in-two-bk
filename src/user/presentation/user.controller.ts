@@ -1,6 +1,6 @@
-import { Controller, Request, Post, Body, Get, Param, HttpCode, HttpStatus,InternalServerErrorException, BadRequestException,NotFoundException, UseGuards} from '@nestjs/common';
+import { Controller, Request, Post, Body, Get, Param, HttpCode, HttpStatus,InternalServerErrorException, BadRequestException,NotFoundException, UseGuards, Query} from '@nestjs/common';
 import { CreateUserUseCase, GetUserByIdUseCase } from '../application/user.use-cases.js';
-import { CreateUserDto, UserResponseDto } from './user.dto.js';
+import { CreateUserDto, UserSearchListResDto, UserResponseDto, UserSearchListDto } from './user.dto.js';
 import {
   ApiCreatedResponse,
   ApiNotFoundResponse,
@@ -11,13 +11,42 @@ import {
 import { User, UserRole } from '../domain/user.entity.js';
 import { UserNotFoundError } from '../domain/user-errors.js';
 import { Auth } from './../../auth/infrastructure/decorators/auth.decorator.js';
+import { usersListUseCase, usersListUseCaseProps } from '../application/user.list.use-cases.js';
 
 @Controller('users')
 export class UserController {
   constructor(
     private readonly createUser: CreateUserUseCase,
     private readonly getUser: GetUserByIdUseCase,
+    private readonly usersList: usersListUseCase,
   ) {}
+
+  @Get('list')
+  @Auth()
+  @ApiOperation({ summary: 'Get all user in list filtered by username' })
+  @ApiOkResponse({ type: UserSearchListResDto })
+  @ApiBadRequestResponse({ description: 'Invalid UUID' })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  async findList(
+    @Request() req: any,
+    @Query('username') username?: string,
+   ) : Promise<UserSearchListResDto[]> 
+  {
+    try {
+      let input = {
+        userSearchedId: req.user.id,
+        username
+      }
+
+      return await this.usersList.execute(input);
+
+      
+    } catch (error) {
+      throw this.toHttpError(error);
+    }
+  }
+
+
 
   @Post()
   @ApiOperation({ summary: 'Create a new user' })
@@ -51,6 +80,7 @@ export class UserController {
       throw this.toHttpError(error);
     }
   }
+
 
 
   private toResponse(user: User): UserResponseDto {

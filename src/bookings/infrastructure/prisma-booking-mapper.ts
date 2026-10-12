@@ -11,7 +11,7 @@ import {
   User as PrismaUser
 } from '@prisma/client';
 import { Booking, BookingCancBy, BookingStatus} from '../domain/booking.aggregate.js';
-import { BookingResDto, BookingUserResDto } from '../presentation/booking.dto.js';
+import { BookingResDto, BookingTeamResDto, BookingUserResDto } from '../presentation/booking.dto.js';
 import { BookingAuditLog, BookingEventType } from '../domain/valueObject/booking.auditLog.value.js';
 import { BookingPlayer, BookingPlayerStatus, PlayerIdentity } from '../domain/entity/booking.player.entity.js';
 import { BookingTeam } from '../domain/entity/booking.team.entity.js';
@@ -47,13 +47,56 @@ export const bookingUserSummarySelect = Prisma.validator<Prisma.BookingSelect>()
   description: true,
   startsAt: true,
   endsAt: true,
-  createdById: true,
+
+  createdBy: {
+    select: {
+      id: true, 
+      username: true, 
+      firstName: true, 
+      lastName: true}
+  },
+
+  teams: {
+    select: {
+      id: true,
+      bookingId: true,
+      teamNumber:true,
+      teamName: true,
+      players: {select:
+        {
+          id: true,
+          status: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          userId: true,
+          user: true
+        }
+      }
+    }
+  },
+  logs: {
+    select : 
+    {
+      createdAt: true,
+      message: true,
+      eventType: true,     
+      user: {select: {username: true}}
+    }
+  },
+
+  cancAt: true,
+  cancBy: true,
+  cancPostConfirm: true,
+  cancReason: true,
+
   club: {
-    select: {position: true}
+    select: {position: true, name: true}
   },
   court: {
     select: {isIndoor: true, name: true}
-  }
+  },
+  createdAt: true,
 });
 
 export type PrismaBookingUserSummarySelect = Prisma.BookingGetPayload<{
@@ -67,7 +110,7 @@ export type PrismaBookingWithDetails = PrismaBooking & {
       user: PrismaUser | null;
     })[];
   })[];
-  auditLogs: (PrismaAuditLog & {
+  logs: (PrismaAuditLog & {
     user: PrismaUser| null;
   })[];
 };
@@ -247,10 +290,10 @@ export abstract class BookingMapper {
         })),
       })),
 
-      auditLogs: primitives.auditLogs.map(log => ({
+      logs: primitives.auditLogs.map(log => ({
         eventType: log.eventType,
         message: log.message,
-        createdAt: log.createdAt,
+        createdAt: log.createdAt.toISOString(),
         username: null, // Anche qui, il dominio possiede solo lo userId
       })),
 
@@ -341,7 +384,26 @@ export abstract class BookingMapper {
         firstName: raw.createdBy.firstName,
         lastName: raw.createdBy.lastName,
       },
-      teams: raw.teams.map(team => ({
+      teams: raw.teams.map(team => (this.prismaTeamToDto(team))),
+      
+      logs: raw.logs.map(log => ({
+        eventType: this.PRISMA_TO_DOMAIN_EVENT_TYPE[log.eventType],
+        message: log.message,
+        createdAt: log.createdAt.toISOString(),
+        username: log.user?.username ?? null, // Molto utile anche nei log!
+      })),
+
+      cancAt: raw.cancAt,
+      cancBy: raw.cancBy? this.PRISMA_TO_DOMAIN_BOOKING_CANCELEDBY[raw.cancBy] : null,
+      cancPostConfirm: raw.cancPostConfirm,
+      cancReason: raw.cancReason,
+
+      createdAt: raw.createdAt
+    };
+  }
+
+  static prismaTeamToDto(team: PrismaTeam & { players: (PrismaPlayer & { user: PrismaUser | null})[];}): BookingTeamResDto {
+    return {
         id: team.id,
         teamName: team.teamName,
         teamNumber: team.teamNumber,
@@ -355,22 +417,7 @@ export abstract class BookingMapper {
             lastName: player.lastName,
             phone: player.phone
         })),
-      })),
-      
-      auditLogs: raw.auditLogs.map(log => ({
-        eventType: this.PRISMA_TO_DOMAIN_EVENT_TYPE[log.eventType],
-        message: log.message,
-        createdAt: log.createdAt,
-        username: log.user?.username ?? null, // Molto utile anche nei log!
-      })),
-
-      cancAt: raw.cancAt,
-      cancBy: raw.cancBy? this.PRISMA_TO_DOMAIN_BOOKING_CANCELEDBY[raw.cancBy] : null,
-      cancPostConfirm: raw.cancPostConfirm,
-      cancReason: raw.cancReason,
-
-      createdAt: raw.createdAt
-    };
+      }
   }
   
 
@@ -419,15 +466,52 @@ export abstract class BookingMapper {
   static toResUserDto(record: PrismaBookingUserSummarySelect): BookingUserResDto {
     return {
       id: record.id,
+      createdBy: record.createdBy,
       courtId: record.courtId,
-      status: this.PRISMA_TO_DOMAIN_BOOKING_STATUS[record.status],
+      isCourtIndoor: record.court.isIndoor,
+      courtName: record.court.name,
+
       clubId: record.clubId,
+      clubName: record.club.name,
+      position: record.club.position,
+    
+      status: this.PRISMA_TO_DOMAIN_BOOKING_STATUS[record.status],
       description: record.description ?? '',
       startsAt: record.startsAt.toISOString(),
       endsAt: record.endsAt.toISOString(),
-      courtName: record.court.name,
       isIndoor: record.court.isIndoor,
-      position: record.club.position
+      teams: record.teams.map(team => {
+        return {
+          id: team.id,
+          teamName: team.teamName,
+          teamNumber: team.teamNumber,
+          players: team.players.map(player => ({
+              id: player.id,
+              username: player.user?.username,
+              status: this.PRISMA_TO_DOMAIN_BOOKING_PLAYER_STATUS[player.status],
+              userId: player.user?.id,
+              type: player.userId ? "REGISTERED" : "GUEST",
+              firstName: player.firstName,
+              lastName: player.lastName,
+              phone: player.phone
+          })),
+        }
+      }),
+
+      cancAt: record.cancAt,
+      cancBy: record.cancBy ? this.PRISMA_TO_DOMAIN_BOOKING_CANCELEDBY[record.cancBy] : null,
+      cancPostConfirm: record.cancPostConfirm,
+      cancReason: record.cancReason,
+
+      logs: record.logs.map(log => {
+        return {
+          createdAt: log.createdAt.toISOString(),
+          eventType: this.PRISMA_TO_DOMAIN_EVENT_TYPE[log.eventType],
+          message: log.message,
+          username: log.user?.username ?? null
+        }
+      }),
+      createdAt: record.createdAt
     };
   }
 
