@@ -4,7 +4,7 @@ import { BookingCancBy, BookingStatus } from '../domain/booking.aggregate.js';
 import { Type } from 'class-transformer';
 import { BookingTeam } from '../domain/entity/booking.team.entity.js';
 import { BookingPlayer, BookingPlayerStatus } from '../domain/entity/booking.player.entity.js';
-import { BookingAuditLog, BookingEventType } from '../domain/valueObject/booking.auditLog.value.js';
+import { BookingEventType } from '../domain/valueObject/booking.log.value.js';
 
 
 
@@ -19,6 +19,18 @@ export class CreateBookingPlayerDto {
   @IsOptional()
   @IsUUID()
   userId?: string;
+
+  @ApiProperty({ 
+    description: 'Nome del giocatore (obbligatorio se GUEST/senza account)', 
+    required: false,
+    example: 'Mario'
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  username?: string;
+
 
   @ApiProperty({ 
     description: 'Nome del giocatore (obbligatorio se GUEST/senza account)', 
@@ -51,6 +63,26 @@ export class CreateBookingPlayerDto {
   @IsString()
   @MaxLength(30)
   phone?: string;
+}
+
+export class InviteBookingPlayerDto extends CreateBookingPlayerDto {
+  @ApiProperty({ format: 'uuid', description: 'ID della squadra da aggiornare' })
+  @IsUUID()
+  teamId!: string;
+}
+
+export class RemovePlayerInBookingTeamReqDto {
+  @ApiProperty({ format: 'uuid', description: 'ID della squadra da aggiornare' })
+  @IsUUID()
+  teamId!: string;
+
+  @ApiProperty({ format: 'uuid', description: 'ID del giocatore da rimuovere' })
+  @IsUUID()
+  playerId!: string;
+
+
+  @ApiProperty({type: String, description: 'username o nome del giocatore', example: 'Mario Rossi', required: true})
+  username!: string;
 }
 
 export class CreateBookingTeamDto {
@@ -119,13 +151,17 @@ export class CreateBookingDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateBookingTeamDto)
-  @ArrayMinSize(1, { message: 'La prenotazione deve includere almeno una squadra' })
-  @ArrayMaxSize(2, { message: 'Una prenotazione di padel standard prevede al massimo 2 squadre' })
+  // @ArrayMinSize(1, { message: 'La prenotazione deve includere almeno una squadra' })
+  // @ArrayMaxSize(2, { message: 'Una prenotazione di padel standard prevede al massimo 2 squadre' })
   teams!: CreateBookingTeamDto[];
 }
 
 
-
+export class UpdateBookingPlayerDto {
+  @ApiProperty({type: Boolean, description: 'Indica se il giocatore ha accettato o meno la prenotazione', example: true, required: false})
+  @IsIn([true, false], { message: 'Il valore deve essere true o false' }) 
+  accepted: boolean;
+}
 
 
 

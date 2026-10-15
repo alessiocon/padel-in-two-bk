@@ -8,6 +8,12 @@ import { BookingResDto, BookingUserResDto } from '../presentation/booking.dto.js
 import { BookingMapper } from '../infrastructure/prisma-booking-mapper.js';
 import { GetClubStaffUseCase, GetClubUseCase } from '../../clubs/application/club-use-cases.js';
 import { CreateBookingUseCase } from './create-booking-use-cases.js';
+import { IsAcceptedBookingByUserUseCase } from './isAccepted-booking-by-user-use-cases copy.js';
+import { InviteBookingUseCase } from './invite.booking.use-case.js';
+import { RemovePlayerInBookingTeamUseCase } from './remove.player.in.booking-team.use-case.js';
+import { SearchBookingsUseCase } from './search.bookings.use-case.js';
+import { CancelPrenotationUseCase } from './cancel.prenotation.use-case.js';
+import { RestorePrenotationUseCase } from './restore.prenotation.use-case.js';
 
 
 // export type CreateBookingInput = {
@@ -26,9 +32,6 @@ export type UpdateBookingInput = {
   userId: string;
   status?: BookingStatus;
 };
-
-type DeleteBookingByClubInput = { bookingId: string, userId: string, reason: string | null, isStaff: boolean}
-
 
 
 // @Injectable()
@@ -128,15 +131,6 @@ export class GetBookingUseCase {
 }
 
 @Injectable()
-export class GetAllBookingsClubUseCase {
-  constructor(@Inject(BOOKING_IREPOSITORY) private readonly repository: IBookingRepository) {}
-
-  async execute(clubId: string, query: string): Promise<BookingResDto[]> {
-    return await this.repository.RO_FindAllByClubId(clubId, query);
-  }
-}
-
-@Injectable()
 export class GetAllBookingsUserUseCase {
   constructor(@Inject(BOOKING_IREPOSITORY) private readonly repository: IBookingRepository) {}
 
@@ -146,105 +140,6 @@ export class GetAllBookingsUserUseCase {
 }
 
 
-@Injectable()
-export class DeleteBookingUseCase {
-  constructor(
-    @Inject(BOOKING_IREPOSITORY) private readonly repository: IBookingRepository,
-    @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
-    private readonly getStaffClub: GetClubStaffUseCase
-  ) {}
-
-  async execute(input: DeleteBookingByClubInput): Promise<Booking> {
-    const time = this.clock.now();
-    const booking = await this.repository.findById(input.bookingId);
-
-    if (booking === null) { throw new NotFoundException("Prenotazione non trovata");}
-    
-    if(input.isStaff){
-      const staff = await this.getStaffClub.execute(booking.clubId)
-      if(!staff.includes(input.userId)) { throw new ForbiddenException("Autorizzazione non concessa");}
-      
-    }else{
-      if (booking.createdById !== input.userId && booking.status === BookingStatus.RESERVED) 
-        { throw new ForbiddenException("Autorizzazione non concessa"); }
-    }
-
-    switch (booking.status) {
-          case  BookingStatus.RESERVED:
-          case  BookingStatus.CONFIRMED:
-            {
-              booking.updateCancelDetails({
-                  status: BookingStatus.CANCELLED,
-                  updatedAt: time,
-                  cancBy: input.isStaff ? BookingCancBy.CLUB : BookingCancBy.USER,
-                  cancAt: time,
-                  cancPostConfirm: true,
-                  cancReason: input.reason
-              });
-
-              await this.repository.update(booking);
-              break;
-            }
-          case BookingStatus.PENDING: {
-              // In fase di test (e per richieste mai decollate), puliamo il DB
-              await this.repository.delete(booking.id);
-              break;
-          }
-
-          default:
-              throw new BadRequestException("Stato della prenotazione non valido per la cancellazione");
-      }
-
-    return booking;
-  }
-}
-
-
-@Injectable()
-export class RestoreBookingStatusUseCase {
-  constructor(
-    @Inject(BOOKING_IREPOSITORY) private readonly bookingRepository: IBookingRepository,
-    @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
-    private readonly getClubStaffUseCase : GetClubStaffUseCase
-  ) {}
-
-  async execute(bookingId: string, userId: string, isReqStaff: boolean): Promise<Booking> {
-    const time = this.clock.now();
-    const booking = await this.bookingRepository.findById(bookingId);
-
-    if (booking === null) { throw new NotFoundException("Prenotazione non trovata");}
-    if (booking.status !== BookingStatus.CANCELLED) {throw new BadRequestException("La prenotazione non è eliminata")}
-
-
-    let status = BookingStatus.CANCELLED;
-    if(isReqStaff){
-      const staff = await this.getClubStaffUseCase.execute(booking.clubId);
-
-      if (!staff.includes(userId)) { throw new ForbiddenException("Autorizzazione non concessa") }
-      if (booking.cancBy !== BookingCancBy.CLUB) { throw new ForbiddenException("La cancellazione è partita dall'utente non puoi ripristinarla");}
-
-      status = staff.includes(booking.createdById) ? BookingStatus.RESERVED : BookingStatus.CONFIRMED;
-
-    }else{
-      if (booking.createdById !== userId || booking.cancBy !== BookingCancBy.USER) { throw new ForbiddenException("Autorizzazione non concessa");}
-      status = booking.cancPostConfirm ? BookingStatus.CONFIRMED : BookingStatus.PENDING;
-    }
-
-    booking.updateCancelDetails({
-      status: status,
-      updatedAt: time,
-      cancBy: null,
-      cancAt: null,
-      cancPostConfirm: null,
-      cancReason: null
-    });
-
-    await this.bookingRepository.hasOverlappingBooking(booking.courtId, booking.startsAt, booking.endsAt, booking.id);
-    await this.bookingRepository.update(booking);
-
-    return booking;
-  }
-}
 
   @Injectable()
   export class AcceptBookingUseCase {
@@ -263,7 +158,7 @@ export class RestoreBookingStatusUseCase {
       const staff = await this.getClubStaffUseCase.execute(booking.clubId);
       if (!staff.includes(userId)) { throw new ForbiddenException("Autorizzazione non concessa") }
 
-      booking.acceptBooking(time);
+      booking.acceptPrenotation(time);
 
       await this.bookingRepository.hasOverlappingBooking(booking.courtId, booking.startsAt, booking.endsAt, booking.id);
       await this.bookingRepository.update(booking);
@@ -303,10 +198,13 @@ export class ChangeBookingUseCase {
 export const BOOKING_USE_CASES = [
     CreateBookingUseCase,
     GetBookingUseCase,
-    GetAllBookingsClubUseCase,
     GetAllBookingsUserUseCase,
     ChangeBookingUseCase,
-    DeleteBookingUseCase,
+    CancelPrenotationUseCase,
     AcceptBookingUseCase,
-    RestoreBookingStatusUseCase,
+    RestorePrenotationUseCase,
+    IsAcceptedBookingByUserUseCase,
+    InviteBookingUseCase,
+    RemovePlayerInBookingTeamUseCase,
+    SearchBookingsUseCase
   ];

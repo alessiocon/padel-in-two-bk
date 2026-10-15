@@ -28,7 +28,7 @@ export class PrismaBookingRepository implements IBookingRepository {
               players: true,
             },
           },
-          logs: true,
+          logs: { orderBy: { createdAt: 'desc' } },
         },
       });
 
@@ -51,7 +51,7 @@ export class PrismaBookingRepository implements IBookingRepository {
             players: true,
           },
         },
-        logs: true,
+        logs: { orderBy: { createdAt: 'desc' } },
       },
     });
 
@@ -84,7 +84,7 @@ export class PrismaBookingRepository implements IBookingRepository {
             players: true,
           },
         },
-        logs: true,
+        logs: { orderBy: { createdAt: 'desc' } },
       },
       orderBy: {startsAt: 'asc'} });
 
@@ -114,34 +114,52 @@ export class PrismaBookingRepository implements IBookingRepository {
     return ;
   }
 
-  //TODO: migliorare la logica di UPDATE perche attualmente non aggiorna
   async update(booking: Booking): Promise<Booking> {
     const data = BookingMapper.toPersistence(booking);
     try {
-      const updatedRecord = await this.prisma.booking.update({
-        where: { id: booking.id },
-        data: {
-          courtId: data.courtId,
-          startsAt: data.startsAt,
-          endsAt: data.endsAt,
-          status: data.status,
-          updatedAt: data.updatedAt,
-          cancBy: data.cancBy,
-          cancAt: data.cancAt,
-          cancPostConfirm: data.cancPostConfirm,
-          cancReason: data.cancReason,
-        },
-        include: {
-          teams: {
-            include: {
-              players: true,
-            },
+      const updatedRecord = await this.prisma.$transaction(async (transaction) => {
+        const newLogs = await this.findNewLogs(transaction, booking);
+        await this.removeDeletedTeamsAndPlayers(transaction, booking);
+
+        return transaction.booking.update({
+          where: { id: booking.id },
+          data: {
+            startsAt: data.startsAt,
+            endsAt: data.endsAt,
+            status: data.status,
+            updatedAt: data.updatedAt,
+            cancBy: data.cancBy,
+            cancAt: data.cancAt,
+            cancPostConfirm: data.cancPostConfirm,
+            cancReason: data.cancReason,
+            court: { connect: { id: data.courtId } },
+            club: { connect: { id: data.clubId } },
+            createdBy: { connect: { id: data.createdById } },
+            teams: { upsert: this.buildTeamUpserts(booking) },
+            ...(newLogs.length > 0
+              ? {
+                  logs: {
+                    create: newLogs.map((log) => ({
+                      userId: log.userId,
+                      eventType: BookingMapper.DOMAIN_TO_PRISMA_EVENT_TYPE[log.eventType],
+                      message: log.message,
+                      createdAt: log.createdAt,
+                    })),
+                  },
+                }
+              : {}),
           },
-          logs: true,
-        },
+          include: {
+            teams: {
+              include: {
+                players: true,
+              },
+            },
+            logs: { orderBy: { createdAt: 'desc' } },
+          },
+        });
       });
 
-      // 2. Riconverte il record completo nell'entità di Dominio
       return BookingMapper.prismaBookingToDomain(updatedRecord);
     } catch (error) {
       // Intercetta eventuali violazioni dei vincoli di sovrapposizione a livello DB (Exclusion Constraint / Trigger)
@@ -150,6 +168,114 @@ export class PrismaBookingRepository implements IBookingRepository {
       }
       throw error;
     }
+  }
+
+  private async findNewLogs(transaction: Prisma.TransactionClient, booking: Booking) {
+    const existingLogs = await transaction.bookingLogs.findMany({
+      where: { bookingId: booking.id },
+      select: {
+        bookingId: true,
+        userId: true,
+        eventType: true,
+        message: true,
+        createdAt: true,
+      },
+    });
+
+    const logKey = (log: {
+      bookingId: string;
+      userId: string | null;
+      eventType: string;
+      message: string;
+      createdAt: Date;
+    }) => JSON.stringify([
+      log.bookingId,
+      log.userId,
+      log.eventType,
+      log.message,
+      log.createdAt.toISOString(),
+    ]);
+    const existingLogCounts = new Map<string, number>();
+    for (const log of existingLogs) {
+      const key = logKey(log);
+      existingLogCounts.set(key, (existingLogCounts.get(key) ?? 0) + 1);
+    }
+
+    return booking.logs.filter((log) => {
+      const key = logKey(log.toPrimitives());
+      const existingCount = existingLogCounts.get(key) ?? 0;
+      if (existingCount > 0) {
+        existingLogCounts.set(key, existingCount - 1);
+        return false;
+      }
+      return true;
+    });
+  }
+
+  private async removeDeletedTeamsAndPlayers(
+    transaction: Prisma.TransactionClient,
+    booking: Booking,
+  ): Promise<void> {
+    const teamIds = booking.teams.map((team) => team.id);
+
+    for (const team of booking.teams) {
+      const playerIds = team.players.map((player) => player.id);
+      await transaction.bookingPlayer.deleteMany({
+        where: {
+          teamId: team.id,
+          ...(playerIds.length > 0 ? { id: { notIn: playerIds } } : {}),
+        },
+      });
+    }
+
+    await transaction.bookingTeam.deleteMany({
+      where: {
+        bookingId: booking.id,
+        ...(teamIds.length > 0 ? { id: { notIn: teamIds } } : {}),
+      },
+    });
+  }
+
+  private buildTeamUpserts(booking: Booking) {
+    return booking.teams.map((team) => ({
+      where: { id: team.id },
+      create: {
+        id: team.id,
+        teamNumber: team.teamNumber,
+        teamName: team.teamName,
+        players: {
+          create: team.players.map((player) => ({
+            id: player.id,
+            ...this.toPlayerPersistence(player),
+          })),
+        },
+      },
+      update: {
+        teamNumber: team.teamNumber,
+        teamName: team.teamName,
+        players: {
+          upsert: team.players.map((player) => {
+            const playerData = this.toPlayerPersistence(player);
+            return {
+              where: { id: player.id },
+              create: { id: player.id, ...playerData },
+              update: playerData,
+            };
+          }),
+        },
+      },
+    }));
+  }
+
+  private toPlayerPersistence(player: Booking['teams'][number]['players'][number]) {
+    const guest = player.guestDetails;
+    return {
+      userId: player.userId,
+      status: BookingMapper.DOMAIN_TO_PRISMA_BOOKING_PLAYER_STATUS[player.status],
+      firstName: guest?.firstName ?? null,
+      lastName: guest?.lastName ?? null,
+      phone: guest?.phone ?? null,
+    };
   }
 
   async delete(bookingId: string): Promise<boolean> {
@@ -190,35 +316,43 @@ export class PrismaBookingRepository implements IBookingRepository {
 
 
 
-  async RO_FindAllByClubId(clubId: string, dateQuery: string): Promise<BookingResDto[]> {
-    const startOfDay = new Date(`${dateQuery}T00:00:00.000Z`);
-    const endOfDay = new Date(`${dateQuery}T23:59:59.999Z`);
-
-    const whereCondition: Prisma.BookingWhereInput = {
-      clubId,
-      startsAt: {
-        gte: startOfDay,
-        lte: endOfDay,
-      },
-    };
+  async RO_FindAllByClubId(clubId: string, from?: Date, to?: Date): Promise<BookingUserResDto[]> {
+    const whereCondition: Prisma.BookingWhereInput = { clubId };
+    if (from || to) {
+      whereCondition.startsAt = {
+        ...(from ? { gte: from } : {}),
+        ...(to ? { lte: to } : {}),
+      };
+    }
 
     const records = await this.prisma.booking.findMany({
       where: whereCondition,
-      select: bookingSummarySelect,
+      select: bookingUserSummarySelect,
       orderBy: { startsAt: 'asc' },
     });
 
-    return records.map((record) => BookingMapper.toResDto(record));
+    return records.map((record) => BookingMapper.toResUserDto(record));
   }
 
 
 
-  async RO_FindAllByUserId(createdById: string/*, dateQuery: string*/): Promise<BookingUserResDto[]> {
+  async RO_FindAllByUserId(userId: string/*, dateQuery: string*/): Promise<BookingUserResDto[]> {
     // const startOfDay = new Date(`${dateQuery}T00:00:00.000Z`);
     // const endOfDay = new Date(`${dateQuery}T23:59:59.999Z`);
 
     const whereCondition: Prisma.BookingWhereInput = {
-      createdById
+      OR: [
+        { createdById: userId },
+        {
+          teams: {
+            some: {
+              players: {
+                some: { userId },
+              },
+            },
+          },
+        },
+      ],
       // startsAt: {
       //   gte: startOfDay,
       //   lte: endOfDay,

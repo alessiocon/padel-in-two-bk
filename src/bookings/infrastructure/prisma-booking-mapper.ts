@@ -3,7 +3,7 @@ import {
   Booking as PrismaBooking,
   BookingTeam as PrismaTeam,
   BookingPlayer as PrismaPlayer,
-  BookingAuditLog as PrismaAuditLog,
+  BookingLogs as PrismaBookingLogs,
   BookingStatus as PrismaBookingStatus,
   BookingCancBy as PrismaBookingCancBy,
   BookingEventType as PrismaEventType,
@@ -12,7 +12,7 @@ import {
 } from '@prisma/client';
 import { Booking, BookingCancBy, BookingStatus} from '../domain/booking.aggregate.js';
 import { BookingResDto, BookingTeamResDto, BookingUserResDto } from '../presentation/booking.dto.js';
-import { BookingAuditLog, BookingEventType } from '../domain/valueObject/booking.auditLog.value.js';
+import { BookingLogs, BookingEventType } from '../domain/valueObject/booking.log.value.js';
 import { BookingPlayer, BookingPlayerStatus, PlayerIdentity } from '../domain/entity/booking.player.entity.js';
 import { BookingTeam } from '../domain/entity/booking.team.entity.js';
 
@@ -21,7 +21,7 @@ export type PrismaBookingWithRelations = PrismaBooking & {
   teams: (PrismaTeam & {
     players: PrismaPlayer[];
   })[];
-  logs: PrismaAuditLog[];
+  logs: PrismaBookingLogs[];
 };
 
 export const bookingSummarySelect = Prisma.validator<Prisma.BookingSelect>()({
@@ -76,6 +76,7 @@ export const bookingUserSummarySelect = Prisma.validator<Prisma.BookingSelect>()
     }
   },
   logs: {
+    orderBy: { createdAt: 'desc' },
     select : 
     {
       createdAt: true,
@@ -110,7 +111,7 @@ export type PrismaBookingWithDetails = PrismaBooking & {
       user: PrismaUser | null;
     })[];
   })[];
-  logs: (PrismaAuditLog & {
+  logs: (PrismaBookingLogs & {
     user: PrismaUser| null;
   })[];
 };
@@ -158,6 +159,8 @@ export abstract class BookingMapper {
 
   public static readonly PRISMA_TO_DOMAIN_EVENT_TYPE: Record<PrismaEventType, BookingEventType> = {
     [PrismaEventType.CREATED]: BookingEventType.CREATED,
+    [PrismaEventType.INSERT]: BookingEventType.INSERT,
+    [PrismaEventType.REMOVED]: BookingEventType.REMOVED,
     [PrismaEventType.PLAYER_JOINED]: BookingEventType.PLAYER_JOINED,
     [PrismaEventType.PLAYER_LEFT]: BookingEventType.PLAYER_LEFT,
     [PrismaEventType.STATUS_CHANGED]: BookingEventType.STATUS_CHANGED,
@@ -166,6 +169,8 @@ export abstract class BookingMapper {
 
   public static readonly DOMAIN_TO_PRISMA_EVENT_TYPE: Record<BookingEventType, PrismaEventType> = {
     [BookingEventType.CREATED]: PrismaEventType.CREATED,
+    [BookingEventType.INSERT]: PrismaEventType.INSERT,
+    [BookingEventType.REMOVED]: PrismaEventType.REMOVED,
     [BookingEventType.PLAYER_JOINED]: PrismaEventType.PLAYER_JOINED,
     [BookingEventType.PLAYER_LEFT]: PrismaEventType.PLAYER_LEFT,
     [BookingEventType.STATUS_CHANGED]: PrismaEventType.STATUS_CHANGED,
@@ -197,7 +202,7 @@ export abstract class BookingMapper {
    */
   public static prismaBookingToDomain(raw: PrismaBookingWithRelations): Booking {
     const teams = raw.teams.map(team => this.mapPrismaTeamToDomain(team));
-    const auditLogs = raw.logs.map(log => this.mapPrismaAuditLogToDomain(log));
+    const bookingLogs = raw.logs.map(log => this.mapPrismaBookingLogsToDomain(log));
 
     return Booking.reconstitute({
       id: raw.id,
@@ -209,7 +214,7 @@ export abstract class BookingMapper {
       endsAt: raw.endsAt,
       status: this.PRISMA_TO_DOMAIN_BOOKING_STATUS[raw.status],
       teams,
-      logs: auditLogs,
+      logs: bookingLogs,
       cancBy: raw.cancBy ? this.PRISMA_TO_DOMAIN_BOOKING_CANCELEDBY[raw.cancBy] : null,
       cancAt: raw.cancAt,
       cancPostConfirm: raw.cancPostConfirm,
@@ -247,8 +252,8 @@ export abstract class BookingMapper {
     });
   }
 
-  private static mapPrismaAuditLogToDomain(prismaLog: PrismaBookingWithRelations['logs'][number]): BookingAuditLog {
-    return BookingAuditLog.reconstitute({
+  private static mapPrismaBookingLogsToDomain(prismaLog: PrismaBookingWithRelations['logs'][number]): BookingLogs {
+    return BookingLogs.reconstitute({
       bookingId: prismaLog.bookingId,
       userId: prismaLog.userId,
       eventType: this.PRISMA_TO_DOMAIN_EVENT_TYPE[prismaLog.eventType],
@@ -290,7 +295,7 @@ export abstract class BookingMapper {
         })),
       })),
 
-      logs: primitives.auditLogs.map(log => ({
+      logs: primitives.logs.map(log => ({
         eventType: log.eventType,
         message: log.message,
         createdAt: log.createdAt.toISOString(),
@@ -314,7 +319,7 @@ export abstract class BookingMapper {
       })[];
     };
     logs?: {
-      create: Prisma.BookingAuditLogCreateWithoutBookingInput[];
+      create: Prisma.BookingLogsCreateWithoutBookingInput[];
     };
   } {
     const primitives = domainBooking.toPrimitives();
@@ -357,7 +362,7 @@ export abstract class BookingMapper {
 
       // Mappatura dei log di audit (Value Objects)
       logs: {
-        create: primitives.auditLogs.map(log => ({
+        create: primitives.logs.map(log => ({
           userId: log.userId,
           eventType: this.DOMAIN_TO_PRISMA_EVENT_TYPE[log.eventType],
           message: log.message,

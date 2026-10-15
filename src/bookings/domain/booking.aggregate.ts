@@ -1,7 +1,7 @@
 import { BadRequestException } from "@nestjs/common";
 import { BookingPastDateError } from "./booking-errors.js";
-import { BookingTeam } from "./entity/booking.team.entity.js";
-import { BookingAuditLog as BookingLog } from "./valueObject/booking.auditLog.value.js";
+import { BookingTeam, type BookingTeamPlayerInput } from "./entity/booking.team.entity.js";
+import { BookingLogs as BookingLog } from "./valueObject/booking.log.value.js";
 
 export enum BookingStatus { RESERVED = "RESERVED" ,PENDING = "PENDING" ,CONFIRMED = "CONFIRMED" ,CANCELLED = "CANCELLED" };
 export enum BookingCancBy { USER = "USER" ,CLUB = "CLUB" };
@@ -90,6 +90,8 @@ export class Booking {
   get status(): BookingStatus { return this.props.status; }
 
   public addTeam(team: BookingTeam, updateAt: Date): Booking {
+
+
     return new Booking({
       ...this.props,
       teams: [...this.props.teams, team],
@@ -97,11 +99,96 @@ export class Booking {
     });
   }
 
-  public addAuditLog(log: BookingLog, updateAt: Date): Booking {
+  public addPlayerToTeam(
+    teamId: string,
+    playerInput: BookingTeamPlayerInput,
+    updatedAt: Date,
+  ): Booking {
+    const teamIndex = this.props.teams.findIndex((team) => team.id === teamId);
+    if (teamIndex === -1) {
+      throw new BadRequestException("La squadra indicata non fa parte della prenotazione.");
+    }
+    if (
+      playerInput.type === 'REGISTERED' &&
+      this.props.teams.some((team) => team.hasPlayer(playerInput.userId))
+    ) {
+      throw new BadRequestException("L'utente fa già parte della prenotazione.");
+    }
+
+    const teams = [...this.props.teams];
+    teams[teamIndex] = teams[teamIndex].addPlayer(playerInput, this.props.createdById);
+
     return new Booking({
       ...this.props,
-      logs: [...this.props.logs, log],
+      teams,
+      updatedAt,
+    });
+  }
+
+  public removePlayerFromTeam(
+    teamId: string,
+    playerId: string,
+    playerUsername: string,
+    creatorId: string,
+    creatorUsername: string,
+    updatedAt: Date,
+  ): Booking {
+    if (creatorId !== this.props.createdById) {
+      throw new BadRequestException("Solo il creatore della prenotazione può rimuovere i partecipanti.");
+    }
+
+    const teamIndex = this.props.teams.findIndex((team) => team.id === teamId);
+    if (teamIndex === -1) {
+      throw new BadRequestException("La squadra indicata non fa parte della prenotazione.");
+    }
+
+    const { team, player } = this.props.teams[teamIndex].removePlayer(playerId);
+    const guest = player.guestDetails;
+
+    const auditLog = BookingLog.playerRemoved({
+      bookingId: this.id,
+      userId: creatorId,
+      actorUsername: creatorUsername,
+      targetName: playerUsername,
+      isRegistered: player.userId !== null,
+      createdAt: updatedAt,
+    });
+    const teams = [...this.props.teams];
+    teams[teamIndex] = team;
+
+    return new Booking({
+      ...this.props,
+      teams,
+      logs: [...this.props.logs, auditLog],
+      updatedAt,
+    });
+  }
+
+  public addLogs(log: BookingLog[], updateAt: Date): Booking {
+    return new Booking({
+      ...this.props,
+      logs: [...this.props.logs, ...log],
       updatedAt: updateAt,
+    });
+  }
+
+  public isAcceptedBookingByUser(userId: string, isAccepted: boolean, updatedAt: Date): Booking {
+    if (userId === this.props.createdById) {
+      throw new BadRequestException("Il creatore della prenotazione non può accettare o rifiutare la propria prenotazione.");
+    }
+
+    const teamIndex = this.props.teams.findIndex((team) => team.hasPlayer(userId));
+    if (teamIndex === -1) {
+      throw new BadRequestException("L'utente non fa parte della prenotazione.");
+    }
+
+    const teams = [...this.props.teams];
+    teams[teamIndex] = teams[teamIndex].isAcceptedByUser(userId, isAccepted);
+
+    return new Booking({
+      ...this.props,
+      teams,
+      updatedAt,
     });
   }
 
@@ -121,17 +208,49 @@ export class Booking {
     this.props = updatedProps;
   }
 
-  updateCancelDetails(input : Pick<BookingProps, 'cancAt' | 'cancBy' | 'cancPostConfirm' | 'cancReason' | 'cancAt' | 'status' | 'updatedAt'>){
-    const updatedProps: BookingProps = {
+  CancelPrenotation(input : 
+    Pick<BookingProps, 'cancAt' | 'cancBy' | 'cancPostConfirm' | 'cancReason' | 'cancAt' | 'status' | 'updatedAt'>, 
+    username: string, 
+    userId: string)
+  : Booking {
+      
+    const auditLog = BookingLog.prenotationCancelled({
+      bookingId: this.id,
+      userId: userId,
+      actorUsername: username,
+      createdAt: input.updatedAt,
+    });
+    
+    return new Booking({
       ...this.props,
       ...input,
-    };
+      logs: [...this.props.logs, auditLog],
+    });
+  }
+  
 
-    this.props = updatedProps;
+  RestorePrenotation(input : 
+    Pick<BookingProps, 'cancAt' | 'cancBy' | 'cancPostConfirm' | 'cancReason' | 'cancAt' | 'status' | 'updatedAt'>, 
+    username: string, 
+    userId: string)
+  : Booking {
+      
+    const auditLog = BookingLog.restorePrenotation({
+      bookingId: this.id,
+      userId: userId,
+      actorUsername: username,
+      createdAt: input.updatedAt,
+    });
+    
+    return new Booking({
+      ...this.props,
+      ...input,
+      logs: [...this.props.logs, auditLog],
+    });
   }
 
 
-  acceptBooking(time: Date){
+  acceptPrenotation(time: Date){
       if (this.status !== BookingStatus.PENDING) {throw new BadRequestException("La prenotazione non è in attesa")}
       if(this.cancAt !== null) {throw new BadRequestException("La prenotazione non è più disponibile")}
       
@@ -156,7 +275,7 @@ export class Booking {
     return { 
       ...this.props,
       teams: this.props.teams.map(t => t.toPrimitives()),
-      auditLogs: this.props.logs.map(l => l.toPrimitives()),
+      logs: this.props.logs.map(l => l.toPrimitives()),
     }; 
   }
 

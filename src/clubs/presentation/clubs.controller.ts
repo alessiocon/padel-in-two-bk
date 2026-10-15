@@ -62,22 +62,6 @@ export class ClubsController {
   @ApiBadRequestResponse({ description: 'Invalid UUID' })
   @ApiNotFoundResponse({ description: 'Club not found' })
   async findOne(@Param('id', new ParseUUIDPipe()) id: string): Promise<ClubResDto> {
-    try {4
-      return await this.getClub.execute(id);
-    } catch (error) {
-      throw this.toHttpError(error);
-    }
-  }
-
-  @Get(':id/manager')
-  @Auth(UserRole.CLUB_OWNER, UserRole.ADMIN)
-  @ApiOperation({ summary: 'Get a club by id for manager' })
-  @ApiOkResponse({ type: ClubsResDto })
-  @ApiBadRequestResponse({ description: 'Invalid UUID' })
-  @ApiNotFoundResponse({ description: 'Club not found' })
-  async findOneByManager(
-    @Param('id', new ParseUUIDPipe()) id: string,
-  ): Promise<ClubResDto> {
     try {
       return await this.getClub.execute(id);
     } catch (error) {

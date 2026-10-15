@@ -72,7 +72,7 @@ model User {
   teamsAsPlayer2    TournamentTeam[]  @relation("Player2")
   createdBookings   Booking[]         @relation("BookingCreator")
   bookingPlayers    BookingPlayer[]   @relation("BookingPlayer")
-  auditLogs         BookingAuditLog[] @relation("UserAuditLogs")
+  bookingLogs         BookingLogs[] @relation("UserBookingLogs")
 
   @@map("users")
 }
@@ -144,7 +144,7 @@ model Booking {
   court             Court                 @relation(fields: [courtId, clubId], references: [id, clubId], onDelete: Cascade)
   createdBy         User                  @relation("BookingCreator", fields: [createdById], references: [id], onDelete: Restrict)
   teams             BookingTeam[]         @relation("BookingTeam")
-  logs              BookingAuditLog[]     @relation("BookingAuditLog")
+  logs              BookingLogs[]          @relation("BookingLogs")
 
   @@unique([id, clubId])
   @@index([clubId, startsAt, endsAt])
@@ -197,6 +197,7 @@ model BookingPlayer {
 enum BookingEventType {
   CREATED
   INSERT
+  REMOVED
   PLAYER_JOINED
   PLAYER_LEFT
   STATUS_CHANGED
@@ -205,7 +206,7 @@ enum BookingEventType {
   @@map("booking_event_type")
 }
 
-model BookingAuditLog {
+model BookingLogs {
   id          String            @id @default(uuid()) @db.Uuid
   bookingId   String            @map("booking_id") @db.Uuid
   
@@ -217,8 +218,8 @@ model BookingAuditLog {
   message     String            @db.VarChar(255)
   createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz
 
-  booking     Booking           @relation("BookingAuditLog",fields: [bookingId], references: [id], onDelete: Cascade)
-  user        User?             @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: SetNull)
+  booking     Booking           @relation("BookingLogs",fields: [bookingId], references: [id], onDelete: Cascade)
+  user        User?             @relation("UserBookingLogs", fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([bookingId])
   @@index([userId])

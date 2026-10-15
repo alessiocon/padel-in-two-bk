@@ -13,6 +13,6 @@ export interface IBookingRepository {
 
   countUserBookingsInWeek(clubId:string, userId: string, from: Date, to: Date): Promise<number>
 
-  RO_FindAllByClubId(clubId: string, query: string): Promise<BookingResDto[]>
+  RO_FindAllByClubId(clubId: string, from?: Date, to?: Date): Promise<BookingUserResDto[]>
   RO_FindAllByUserId(userId: string): Promise<BookingUserResDto[]>
 }

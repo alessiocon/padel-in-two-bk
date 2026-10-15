@@ -1,4 +1,10 @@
+import { BadRequestException } from "@nestjs/common";
+import { BookingLogs, BookingEventType } from "../valueObject/booking.log.value.js";
 import { BookingPlayer } from "./booking.player.entity.js";
+
+export type BookingTeamPlayerInput =
+  | { type: 'REGISTERED'; userId: string }
+  | { type: 'GUEST'; firstName: string; lastName: string; phone?: string };
 
 export type BookingTeamProps = {
   readonly id: string;
@@ -36,11 +42,74 @@ export class BookingTeam {
   public get teamName(): string { return this.props.teamName; }
   public get players(): ReadonlyArray<BookingPlayer> { return this.props.players; }
 
-  public addPlayer(player: BookingPlayer): BookingTeam {
+  public hasPlayer(userId: string): boolean {
+    return this.props.players.some((player) => player.userId === userId);
+  }
+
+  public isAcceptedByUser(userId: string, isAccepted: boolean): BookingTeam {
+    const player = this.props.players.find((candidate) => candidate.userId === userId);
+    if (!player) {
+      throw new BadRequestException("L'utente non fa parte della squadra.");
+    }
+
+    let updatedPlayers: BookingPlayer[] = [];
+    if(!isAccepted ){
+      updatedPlayers = this.props.players.filter((candidate) => candidate.id !== player.id);
+    }else{
+      updatedPlayers = this.props.players.map((candidate) =>
+        candidate.id === player.id ? player.respondToInvitation(isAccepted) : candidate,
+      );
+    }
+
+    return new BookingTeam({
+      ...this.props,
+      players: updatedPlayers,
+    });
+  }
+
+
+
+  public addPlayer(input: BookingTeamPlayerInput, bookingCreatorId: string): BookingTeam {
+    if (this.props.players.length >= 2) {
+      throw new BadRequestException("La squadra ha già raggiunto il numero massimo di giocatori.");
+    }
+
+    if (input.type === 'REGISTERED' && this.hasPlayer(input.userId)) {
+      throw new BadRequestException("L'utente fa già parte della squadra.");
+    }
+
+    const player = input.type === 'REGISTERED'
+      ? BookingPlayer.createRegisteredInvitation({
+          teamId: this.id,
+          userId: input.userId,
+          bookingCreatorId,
+        })
+      : BookingPlayer.createGuest({
+          teamId: this.id,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          phone: input.phone,
+        });
+
     return new BookingTeam({
       ...this.props,
       players: [...this.props.players, player],
     });
+  }
+
+  public removePlayer(playerId: string): { team: BookingTeam; player: BookingPlayer } {
+    const player = this.props.players.find((candidate) => candidate.id === playerId);
+    if (!player) {
+      throw new BadRequestException("Il giocatore indicato non fa parte della squadra.");
+    }
+
+    return {
+      team: new BookingTeam({
+        ...this.props,
+        players: this.props.players.filter((candidate) => candidate.id !== playerId),
+      }),
+      player,
+    };
   }
 
   public toPrimitives() {

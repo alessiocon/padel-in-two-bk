@@ -5,8 +5,7 @@ import { CLUB_REPOSITORY, type IClubRepository } from "../../clubs/domain/club-I
 import { BookingResDto, CreateBookingTeamDto } from "../presentation/booking.dto.js";
 import { Booking, BookingStatus } from "../domain/booking.aggregate.js";
 import { BookingTeam } from "../domain/entity/booking.team.entity.js";
-import { BookingPlayer, BookingPlayerStatus } from "../domain/entity/booking.player.entity.js";
-import { BookingAuditLog, BookingEventType } from "../domain/valueObject/booking.auditLog.value.js";
+import { BookingLogs } from "../domain/valueObject/booking.log.value.js";
 import { BookingMapper } from "../infrastructure/prisma-booking-mapper.js";
 
 export type CreateBookingInput = {
@@ -31,6 +30,7 @@ export type CreateBookingPlayerInput = {
       firstName?: string;
       lastName?: string;
       phone?: string;
+      username?: string;
 }
 
 
@@ -89,7 +89,8 @@ export class CreateBookingUseCase {
       createdAt: now,
     });
 
-    // 2. Aggiunta delle squadre e dei giocatori (se presenti nel payload)
+    let logs : BookingLogs[] = [];
+
     if (input.teams && input.teams.length > 0) {
       input.teams.forEach((teamDto, teamIndex) => {
         let team = BookingTeam.create({
@@ -99,7 +100,7 @@ export class CreateBookingUseCase {
         });
 
         teamDto.players.forEach(playerDto => {
-          const identity = playerDto.userId
+          const playerInput = playerDto.userId
             ? { type: 'REGISTERED' as const, userId: playerDto.userId }
             : {
                 type: 'GUEST' as const,
@@ -108,38 +109,34 @@ export class CreateBookingUseCase {
                 phone: playerDto.phone,
               };
 
-          //Accetta l'utente ma se registrato e non è il cratore aspetta conferma
-          let status = BookingPlayerStatus.ACCEPTED;
-          if(identity.userId && identity.userId !== input.createdById ){
-            status =  BookingPlayerStatus.PENDING;
-            //TODO: INVIA INVITO DI PARTECIPAZIONE TRAMITE EMAIL
-          }
+          team = team.addPlayer(playerInput, input.createdById);
 
-          const player = BookingPlayer.create({
-            teamId: team.id,
-            status,
-            identity,
-          });
-
-          team = team.addPlayer(player);
+          logs.push(BookingLogs.playerAdded({
+            bookingId: booking.id,
+            userId: input.createdById,
+            actorUsername: input.username,
+            targetName: playerDto.userId
+              ? playerDto.username ?? playerDto.userId
+              : `${playerDto.firstName ?? 'Ospite'} ${playerDto.lastName ?? ''}`.trim(),
+            isRegistered: Boolean(playerDto.userId),
+            createdAt: now,
+          }));
         });
 
         booking = booking.addTeam(team, now);
       });
     }
 
-    // 3. Creazione del log di audit iniziale (Value Object)
-    const auditLog = BookingAuditLog.create({
+    const auditLog = BookingLogs.bookingCreated({
       bookingId: booking.id,
       userId: input.createdById,
-      eventType: BookingEventType.CREATED,
-      message: `Prenotazione creata da ${input.username} per il campo: ${court.name}`,
+      creatorUsername: input.username,
+      courtName: court.name,
       createdAt:now,
     });
 
-    booking = booking.addAuditLog(auditLog, now);
+    booking = booking.addLogs([auditLog, ...logs], now);
 
-    //TODO: DA SISTEMARE IL REPOSITORY
     const savedBooking = await this.bookingRepository.create(booking);
     return BookingMapper.domainBookingToDto(savedBooking);
   }

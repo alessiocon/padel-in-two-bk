@@ -1,0 +1,11 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\prisma",
+    "\\src",
+    "\\src\\auth",
+    "\\src\\auth\\infrastructure\\decorators"
+  ],
+  "SelectedNode": "\\src\\auth\\infrastructure",
+  "PreviewInSolutionExplorer": false
+}
