@@ -3,13 +3,16 @@ import { PrismaService } from '../../database/prisma.service.js';
 import { Booking, BookingStatus } from '../domain/booking.aggregate.js';
 import { BookingConflictError, BookingCourtNotFoundError } from '../domain/booking-errors.js';
 import type { IBookingRepository } from '../infrastructure/booking-IRepository.js';
-import { BookingMapper, bookingSummarySelect, bookingUserSummarySelect } from './prisma-booking-mapper.js';
-import { BookingResDto, BookingUserResDto } from '../presentation/booking.dto.js';
+import { BookingMapper, bookingQuickSummarySelect, bookingSummarySelect, bookingUserDetailsSelct } from './prisma-booking-mapper.js';
+import { BookingQuickResDto, BookingRes, BookingUserResDto } from '../presentation/booking.dto.js';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class PrismaBookingRepository implements IBookingRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+
+
   
   async create(booking: Booking): Promise<Booking> {
     const court = await this.prisma.court.findUnique({ where: { id: booking.courtId } });
@@ -316,7 +319,7 @@ export class PrismaBookingRepository implements IBookingRepository {
 
 
 
-  async RO_FindAllByClubId(clubId: string, from?: Date, to?: Date): Promise<BookingUserResDto[]> {
+  async RO_FindAllByClubId(clubId: string, from?: Date, to?: Date): Promise<BookingQuickResDto[]> {
     const whereCondition: Prisma.BookingWhereInput = { clubId };
     if (from || to) {
       whereCondition.startsAt = {
@@ -327,45 +330,78 @@ export class PrismaBookingRepository implements IBookingRepository {
 
     const records = await this.prisma.booking.findMany({
       where: whereCondition,
-      select: bookingUserSummarySelect,
+      select: bookingUserDetailsSelct,
       orderBy: { startsAt: 'asc' },
     });
 
-    return records.map((record) => BookingMapper.toResUserDto(record));
+    return records.map((record) => BookingMapper.toQuickResDto(record));
   }
 
-
-
-  async RO_FindAllByUserId(userId: string/*, dateQuery: string*/): Promise<BookingUserResDto[]> {
-    // const startOfDay = new Date(`${dateQuery}T00:00:00.000Z`);
-    // const endOfDay = new Date(`${dateQuery}T23:59:59.999Z`);
-
+  async RO_SearchBookings(
+    clubId?: string,
+    from?: Date,
+    to?: Date,
+    userId?: string,
+    status?: BookingStatus,
+  ): Promise<BookingQuickResDto[]> {
     const whereCondition: Prisma.BookingWhereInput = {
-      OR: [
-        { createdById: userId },
-        {
-          teams: {
-            some: {
-              players: {
-                some: { userId },
-              },
+      ...(clubId ? { clubId } : {}),
+      ...(status ? {status}: {}),
+      ...(from || to
+        ? {
+            startsAt: {
+              ...(from ? { gte: from } : {}),
+              ...(to ? { lte: to } : {}),
             },
-          },
-        },
-      ],
-      // startsAt: {
-      //   gte: startOfDay,
-      //   lte: endOfDay,
-      // },
+          }
+        : {}),
+      ...(userId
+        ? {
+            OR: [
+              { createdById: userId },
+              {
+                teams: {
+                  some: {
+                    players: {
+                      some: { userId },
+                    },
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
     };
 
     const records = await this.prisma.booking.findMany({
       where: whereCondition,
-      select: bookingUserSummarySelect,
+      select: bookingQuickSummarySelect,
       orderBy: { startsAt: 'asc' },
     });
 
-    return records.map((record) => BookingMapper.toResUserDto(record));
+    return records.map((record) => BookingMapper.toQuickResDto(record));
+  }
+
+
+
+  async RO_FindDetailsById(id: string, userId: string): Promise<BookingUserResDto> {
+
+    const whereCondition: Prisma.BookingWhereInput = {
+      id,
+      OR: [
+        { createdById: userId },
+        {club: {ownerId: userId}},
+        {teams: { some: { players: { some: { userId },},},},},
+      ]
+    };
+
+    const record = await this.prisma.booking.findFirst({
+      where: whereCondition,
+      select: bookingUserDetailsSelct
+    });
+
+    if(!record) throw new BadRequestException("prenotazione non trovata, o autorizzazione non concessa");
+    return BookingMapper.toResUserDto(record);
   }
 
   private isOverlapError(error: unknown): boolean {

@@ -112,6 +112,21 @@ export class BookingLogs {
     });
   }
 
+    public static acceptedBooking(input: {
+    bookingId: string;
+    userId: string;
+    actorUsername: string;
+    createdAt: Date;
+  }): BookingLogs {
+    return this.create({
+      bookingId: input.bookingId,
+      userId: input.userId,
+      eventType: BookingEventType.STATUS_CHANGED,
+      message: "il club ha accettato la prenotazione.",
+      createdAt: input.createdAt,
+    });
+  }
+
 
 
   public static reconstitute(props: BookingLogProps): BookingLogs {

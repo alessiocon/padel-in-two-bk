@@ -3,7 +3,7 @@ import { GetClubStaffUseCase } from "../../clubs/application/club-use-cases.js";
 import { CLOCK_SERVICE, type IClockService } from "../../service/interface/IClockService.js";
 import { BookingCancBy, BookingStatus } from "../domain/booking.aggregate.js";
 import { BOOKING_IREPOSITORY, type IBookingRepository } from "../infrastructure/booking-IRepository.js";
-import { BookingResDto } from "../presentation/booking.dto.js";
+import { BookingRes } from "../presentation/booking.dto.js";
 import { BookingMapper } from "../infrastructure/prisma-booking-mapper.js";
 
 
@@ -16,12 +16,12 @@ export class RestorePrenotationUseCase {
     private readonly getClubStaffUseCase : GetClubStaffUseCase
   ) {}
 
-  async execute(bookingId: string, userId: string, username: string, isReqStaff: boolean): Promise<BookingResDto> {
+  async execute(bookingId: string, userId: string, username: string, isReqStaff: boolean): Promise<BookingRes> {
     const time = this.clock.now();
     const booking = await this.bookingRepository.findById(bookingId);
 
     if (booking === null) { throw new NotFoundException("Prenotazione non trovata");}
-    if (booking.status !== BookingStatus.CANCELLED) {throw new BadRequestException("La prenotazione non è eliminata")}
+    
 
 
     let status = BookingStatus.CANCELLED;

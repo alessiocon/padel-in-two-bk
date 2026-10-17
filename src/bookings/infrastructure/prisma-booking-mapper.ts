@@ -11,7 +11,7 @@ import {
   User as PrismaUser
 } from '@prisma/client';
 import { Booking, BookingCancBy, BookingStatus} from '../domain/booking.aggregate.js';
-import { BookingResDto, BookingTeamResDto, BookingUserResDto } from '../presentation/booking.dto.js';
+import { BookingQuickResDto, BookingRes, BookingTeamResDto, BookingUserResDto } from '../presentation/booking.dto.js';
 import { BookingLogs, BookingEventType } from '../domain/valueObject/booking.log.value.js';
 import { BookingPlayer, BookingPlayerStatus, PlayerIdentity } from '../domain/entity/booking.player.entity.js';
 import { BookingTeam } from '../domain/entity/booking.team.entity.js';
@@ -39,7 +39,25 @@ export type PrismaBookingSummarySelect = Prisma.BookingGetPayload<{
   select: typeof bookingSummarySelect;
 }>;
 
-export const bookingUserSummarySelect = Prisma.validator<Prisma.BookingSelect>()({
+export const bookingQuickSummarySelect = Prisma.validator<Prisma.BookingSelect>()({
+  id: true,
+  clubId: true,
+  courtId: true,
+  status: true,
+  description: true,
+  startsAt: true,
+  endsAt: true,
+  createdAt: true,
+  club: { select: { name: true } },
+  court: { select: { name: true, isIndoor: true } },
+  teams: {select: {players: { select: {status: true}}}}
+});
+
+export type PrismaBookingQuickSummarySelect = Prisma.BookingGetPayload<{
+  select: typeof bookingQuickSummarySelect;
+}>;
+
+export const bookingUserDetailsSelct = Prisma.validator<Prisma.BookingSelect>()({
   id: true,
   courtId: true,
   status: true,
@@ -92,7 +110,7 @@ export const bookingUserSummarySelect = Prisma.validator<Prisma.BookingSelect>()
   cancReason: true,
 
   club: {
-    select: {position: true, name: true}
+    select: {position: true, name: true, ownerId: true}
   },
   court: {
     select: {isIndoor: true, name: true}
@@ -100,8 +118,8 @@ export const bookingUserSummarySelect = Prisma.validator<Prisma.BookingSelect>()
   createdAt: true,
 });
 
-export type PrismaBookingUserSummarySelect = Prisma.BookingGetPayload<{
-  select: typeof bookingUserSummarySelect;
+export type PrismaBookingUserDetailsSelect = Prisma.BookingGetPayload<{
+  select: typeof bookingUserDetailsSelct;
 }>;
 
 export type PrismaBookingWithDetails = PrismaBooking & {
@@ -263,7 +281,7 @@ export abstract class BookingMapper {
   }
 
 
-  public static domainBookingToDto(booking: Booking): BookingResDto {
+  public static domainBookingToDto(booking: Booking): BookingRes {
     const primitives = booking.toPrimitives();
 
     return {
@@ -374,7 +392,7 @@ export abstract class BookingMapper {
 
 
 
-  public static prismaBookingToDto(raw: PrismaBookingWithDetails): BookingResDto {
+  public static prismaBookingToDto(raw: PrismaBookingWithDetails): BookingRes {
     return {
       id: raw.id,
       clubId: raw.clubId,
@@ -456,7 +474,7 @@ export abstract class BookingMapper {
    * Mappa la proiezione Prisma nel DTO di risposta per i Read Model (BookingsResDto)
    */
   //TODO DA ELIMINARE E UTILIZZARE UN SUMMARY MIGLIORE
-  static toResDto(record: PrismaBookingSummarySelect): BookingResDto {
+  static toResDto(record: PrismaBookingSummarySelect): BookingRes {
     return {
       id: record.id,
       courtId: record.courtId,
@@ -465,10 +483,34 @@ export abstract class BookingMapper {
       description: record.description ?? '',
       startsAt: record.startsAt,
       endsAt: record.endsAt,
-    } as BookingResDto;
+    } as BookingRes;
   }
 
-  static toResUserDto(record: PrismaBookingUserSummarySelect): BookingUserResDto {
+  static toQuickResDto(record: PrismaBookingQuickSummarySelect): BookingQuickResDto {
+    let nPlayer = 0;
+    record.teams.forEach(team => {
+      team.players.forEach(player => {
+        player.status === BookingPlayerStatus.ACCEPTED ? nPlayer += 1 : null;
+      })
+    });
+
+    return {
+      id: record.id,
+      clubId: record.clubId,
+      clubName: record.club.name,
+      courtId: record.courtId,
+      courtName: record.court.name,
+      nPlayer,
+      isCourtIndoor: record.court.isIndoor,
+      status: this.PRISMA_TO_DOMAIN_BOOKING_STATUS[record.status],
+      description: record.description ?? '',
+      startsAt: record.startsAt.toISOString(),
+      endsAt: record.endsAt.toISOString(),
+      createdAt: record.createdAt,
+    };
+  }
+
+  static toResUserDto(record: PrismaBookingUserDetailsSelect): BookingUserResDto {
     return {
       id: record.id,
       createdBy: record.createdBy,

@@ -2,7 +2,7 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from "@nes
 import { CLOCK_SERVICE, type IClockService } from "../../service/interface/IClockService.js";
 import { BOOKING_IREPOSITORY, type IBookingRepository } from "../infrastructure/booking-IRepository.js";
 import { CLUB_REPOSITORY, type IClubRepository } from "../../clubs/domain/club-IRepository.js";
-import { BookingResDto, CreateBookingTeamDto } from "../presentation/booking.dto.js";
+import { BookingRes, CreateBookingTeamDto } from "../presentation/booking.dto.js";
 import { Booking, BookingStatus } from "../domain/booking.aggregate.js";
 import { BookingTeam } from "../domain/entity/booking.team.entity.js";
 import { BookingLogs } from "../domain/valueObject/booking.log.value.js";
@@ -42,7 +42,7 @@ export class CreateBookingUseCase {
     @Inject(CLUB_REPOSITORY) private readonly clubRepository: IClubRepository
   ) {}
   
-  async execute(input: CreateBookingInput ): Promise<BookingResDto> {
+  async execute(input: CreateBookingInput ): Promise<BookingRes> {
     const club = await this.clubRepository.findById(input.clubId);
     if (!club) {
       throw new NotFoundException(`Club with ID ${input.clubId} does not exist.`);

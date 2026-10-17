@@ -4,7 +4,7 @@ import { BOOKING_IREPOSITORY, type IBookingRepository } from '../infrastructure/
 import { GetClubStaffUseCase } from '../../clubs/application/club-use-cases.js';
 import { Booking, BookingCancBy, BookingStatus } from '../domain/booking.aggregate.js';
 import { BookingMapper } from '../infrastructure/prisma-booking-mapper.js';
-import { BookingResDto } from '../presentation/booking.dto.js';
+import { BookingRes } from '../presentation/booking.dto.js';
 
 type CancelPrenotationInput = { 
     bookingId: string, 
@@ -23,7 +23,7 @@ export class CancelPrenotationUseCase {
     private readonly getStaffClub: GetClubStaffUseCase
   ) {}
 
-  async execute(input: CancelPrenotationInput): Promise<BookingResDto> {
+  async execute(input: CancelPrenotationInput): Promise<BookingRes> {
     const time = this.clock.now();
     const booking = await this.repository.findById(input.bookingId);
 

@@ -164,6 +164,31 @@ export class UpdateBookingPlayerDto {
 }
 
 
+export class BookingQuickResDto{
+    id: string;
+    clubId: string;
+    clubName: string;
+
+    courtId: string;
+    courtName: string;
+    isCourtIndoor: boolean;
+
+    nPlayer: number;
+
+    status: BookingStatus;
+    description: string;
+    startsAt: string;
+    endsAt: string;
+    
+    createdAt: Date;
+}
+
+export class SearchBookingQueryDto {
+   from?: string;
+   to?: string;
+   clubId?: string;
+   userId?: string;
+}
 
 
 
@@ -225,7 +250,7 @@ export class BookingResponseDto {
   updatedAt!: Date;
 }
 
-export class BookingResDto {
+export class BookingRes {
     id: string;
     clubId: string;
     courtId: string;

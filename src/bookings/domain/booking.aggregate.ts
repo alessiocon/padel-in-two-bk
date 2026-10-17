@@ -193,19 +193,13 @@ export class Booking {
   }
 
 
-  updateDetails(changes: UpdateBookingProps): void {
+  updateDetails(changes: UpdateBookingProps): Booking {
 
-    const updatedProps: BookingProps = {
+    return new Booking({
       ...this.props,
       description: changes.description ?? this.description,
       updatedAt: changes.updateDate,
-    };
-
-    // Riesegui le validazioni generali dell'entità
-    Booking.validate(updatedProps);
-
-    // Applica le modifiche allo stato interno
-    this.props = updatedProps;
+    });
   }
 
   CancelPrenotation(input : 
@@ -250,17 +244,25 @@ export class Booking {
   }
 
 
-  acceptPrenotation(time: Date){
-      if (this.status !== BookingStatus.PENDING) {throw new BadRequestException("La prenotazione non è in attesa")}
-      if(this.cancAt !== null) {throw new BadRequestException("La prenotazione non è più disponibile")}
-      
-      const updatedProps: BookingProps = {
+  acceptPrenotation(userId: string, username: string, time: Date,): Booking {
+    if (this.status !== BookingStatus.PENDING) {throw new BadRequestException("La prenotazione non è in attesa")}
+    if(this.cancAt !== null) {throw new BadRequestException("La prenotazione non è più disponibile")}
+    
+    const auditLog = BookingLog.acceptedBooking({
+      bookingId: this.id,
+      userId: userId,
+      actorUsername: username,
+      createdAt: time,
+    });
+
+    let booking = new Booking({
       ...this.props,
       status: BookingStatus.CONFIRMED,
+       logs: [...this.props.logs, auditLog],
       updatedAt: time
-    };
+    })
 
-    this.props = updatedProps;
+    return booking;
   }
 
   overlaps(other: Booking): boolean {

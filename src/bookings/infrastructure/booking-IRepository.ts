@@ -1,5 +1,5 @@
-import { Booking } from '../domain/booking.aggregate.js';
-import { BookingResDto, BookingUserResDto } from '../presentation/booking.dto.js';
+import { Booking, BookingStatus } from '../domain/booking.aggregate.js';
+import { BookingQuickResDto, BookingRes, BookingUserResDto } from '../presentation/booking.dto.js';
 
 export const BOOKING_IREPOSITORY = Symbol('BOOKING_REPOSITORY');
 
@@ -13,6 +13,7 @@ export interface IBookingRepository {
 
   countUserBookingsInWeek(clubId:string, userId: string, from: Date, to: Date): Promise<number>
 
-  RO_FindAllByClubId(clubId: string, from?: Date, to?: Date): Promise<BookingUserResDto[]>
-  RO_FindAllByUserId(userId: string): Promise<BookingUserResDto[]>
+  RO_FindAllByClubId(clubId: string, from?: Date, to?: Date): Promise<BookingQuickResDto[]>
+  RO_SearchBookings(clubId?: string, from?: Date, to?: Date, userId?: string, status?: BookingStatus): Promise<BookingQuickResDto[]>
+  RO_FindDetailsById(id: string, userId: string): Promise<BookingUserResDto>
 }

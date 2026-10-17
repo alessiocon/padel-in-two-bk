@@ -1,7 +1,7 @@
 import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { CLOCK_SERVICE, type IClockService } from '../../service/interface/IClockService.js';
 import { BOOKING_IREPOSITORY, type IBookingRepository } from '../infrastructure/booking-IRepository.js';
-import { BookingResDto } from '../presentation/booking.dto.js';
+import { BookingRes } from '../presentation/booking.dto.js';
 import { BookingMapper } from '../infrastructure/prisma-booking-mapper.js';
 
 export type RemovePlayerInBookingTeamInput = {
@@ -20,7 +20,7 @@ export class RemovePlayerInBookingTeamUseCase {
     @Inject(BOOKING_IREPOSITORY) private readonly bookingRepository: IBookingRepository,
   ) {}
 
-  async execute(input: RemovePlayerInBookingTeamInput): Promise<BookingResDto> {
+  async execute(input: RemovePlayerInBookingTeamInput): Promise<BookingRes> {
     const booking = await this.bookingRepository.findById(input.bookingId);
     if (booking.createdById !== input.requesterId) {
       throw new ForbiddenException('Solo il creatore della prenotazione può rimuovere i partecipanti.');
