@@ -3,8 +3,8 @@ import { PrismaService } from '../../database/prisma.service.js';
 import { Booking, BookingStatus } from '../domain/booking.aggregate.js';
 import { BookingConflictError, BookingCourtNotFoundError } from '../domain/booking-errors.js';
 import type { IBookingRepository } from '../infrastructure/booking-IRepository.js';
-import { BookingMapper, bookingQuickSummarySelect, bookingSummarySelect, bookingUserDetailsSelct } from './prisma-booking-mapper.js';
-import { BookingQuickResDto, BookingRes, BookingUserResDto } from '../presentation/booking.dto.js';
+import { BookingMapper, bookingQuickSummarySelect, bookingSummarySelect, bookingDetailsSelect } from './prisma-booking-mapper.js';
+import { BookingQuickResDto, BookingDetailResDto } from '../presentation/booking.dto.js';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -14,28 +14,16 @@ export class PrismaBookingRepository implements IBookingRepository {
 
 
   
-  async create(booking: Booking): Promise<Booking> {
-    const court = await this.prisma.court.findUnique({ where: { id: booking.courtId } });
-    if (!court || court.clubId !== booking.clubId) {
-      throw new BookingCourtNotFoundError(booking.courtId);
-    }
-
-   const bookingPrimitive = BookingMapper.domainBookingToPersistence(booking);
+  async create(booking: Booking): Promise<BookingQuickResDto> {
+    const bookingPrimitive = BookingMapper.domainBookingToPersistence(booking);
 
     try {
       const record = await this.prisma.booking.create({
         data: bookingPrimitive,
-        include: {
-          teams: {
-            include: {
-              players: true,
-            },
-          },
-          logs: { orderBy: { createdAt: 'desc' } },
-        },
+        select: bookingQuickSummarySelect
       });
-
-      return BookingMapper.prismaBookingToDomain(record);
+      
+      return BookingMapper.prismaToBookingQuickResDto(record);
     } catch (error) {
       if (this.isOverlapError(error)) {
         throw new BookingConflictError();
@@ -89,7 +77,7 @@ export class PrismaBookingRepository implements IBookingRepository {
         },
         logs: { orderBy: { createdAt: 'desc' } },
       },
-      orderBy: {startsAt: 'asc'} });
+      orderBy: {startsAt: 'desc'} });
 
     return records.map((record) => BookingMapper.prismaBookingToDomain(record));
   }
@@ -117,10 +105,10 @@ export class PrismaBookingRepository implements IBookingRepository {
     return ;
   }
 
-  async update(booking: Booking): Promise<Booking> {
+  async update(booking: Booking): Promise<BookingDetailResDto> {
     const data = BookingMapper.toPersistence(booking);
     try {
-      const updatedRecord = await this.prisma.$transaction(async (transaction) => {
+      const record = await this.prisma.$transaction(async (transaction) => {
         const newLogs = await this.findNewLogs(transaction, booking);
         await this.removeDeletedTeamsAndPlayers(transaction, booking);
 
@@ -152,18 +140,11 @@ export class PrismaBookingRepository implements IBookingRepository {
                 }
               : {}),
           },
-          include: {
-            teams: {
-              include: {
-                players: true,
-              },
-            },
-            logs: { orderBy: { createdAt: 'desc' } },
-          },
+          select: bookingDetailsSelect
         });
       });
 
-      return BookingMapper.prismaBookingToDomain(updatedRecord);
+      return BookingMapper.prismaToBookingDetails(record);
     } catch (error) {
       // Intercetta eventuali violazioni dei vincoli di sovrapposizione a livello DB (Exclusion Constraint / Trigger)
       if (this.isOverlapError(error)) {
@@ -330,11 +311,11 @@ export class PrismaBookingRepository implements IBookingRepository {
 
     const records = await this.prisma.booking.findMany({
       where: whereCondition,
-      select: bookingUserDetailsSelct,
-      orderBy: { startsAt: 'asc' },
+      select: bookingDetailsSelect,
+      orderBy: { startsAt: 'desc' },
     });
 
-    return records.map((record) => BookingMapper.toQuickResDto(record));
+    return records.map((record) => BookingMapper.prismaToBookingQuickResDto(record));
   }
 
   async RO_SearchBookings(
@@ -376,15 +357,15 @@ export class PrismaBookingRepository implements IBookingRepository {
     const records = await this.prisma.booking.findMany({
       where: whereCondition,
       select: bookingQuickSummarySelect,
-      orderBy: { startsAt: 'asc' },
+      orderBy: { startsAt: 'desc' },
     });
 
-    return records.map((record) => BookingMapper.toQuickResDto(record));
+    return records.map((record) => BookingMapper.prismaToBookingQuickResDto(record));
   }
 
 
 
-  async RO_FindDetailsById(id: string, userId: string): Promise<BookingUserResDto> {
+  async RO_FindDetailsById(id: string, userId: string): Promise<BookingDetailResDto> {
 
     const whereCondition: Prisma.BookingWhereInput = {
       id,
@@ -397,11 +378,11 @@ export class PrismaBookingRepository implements IBookingRepository {
 
     const record = await this.prisma.booking.findFirst({
       where: whereCondition,
-      select: bookingUserDetailsSelct
+      select: bookingDetailsSelect
     });
 
     if(!record) throw new BadRequestException("prenotazione non trovata, o autorizzazione non concessa");
-    return BookingMapper.toResUserDto(record);
+    return BookingMapper.prismaToBookingDetails(record);
   }
 
   private isOverlapError(error: unknown): boolean {

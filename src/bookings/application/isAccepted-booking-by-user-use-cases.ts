@@ -1,9 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { CLOCK_SERVICE, type IClockService } from "../../service/interface/IClockService.js";
 import { BOOKING_IREPOSITORY, type IBookingRepository } from "../infrastructure/booking-IRepository.js";
-import { BookingRes } from "../presentation/booking.dto.js";
 import { BookingLogs, BookingEventType } from "../domain/valueObject/booking.log.value.js";
-import { BookingMapper } from "../infrastructure/prisma-booking-mapper.js";
+import { BookingDetailResDto } from "../presentation/booking.dto.js";
 
 export type IsAcceptedBookingByUserInput = {
   bookingId: string;
@@ -20,7 +19,7 @@ export class IsAcceptedBookingByUserUseCase {
     @Inject(BOOKING_IREPOSITORY) private readonly bookingRepository: IBookingRepository,
   ){}
   
-  async execute(input: IsAcceptedBookingByUserInput): Promise<BookingRes> {
+  async execute(input: IsAcceptedBookingByUserInput): Promise<BookingDetailResDto> {
    
     
     const now = this.clock.now();
@@ -38,7 +37,6 @@ export class IsAcceptedBookingByUserUseCase {
 
     booking = booking.addLogs([auditLog], now);
 
-    const updateBooking = await this.bookingRepository.update(booking);
-    return BookingMapper.domainBookingToDto(updateBooking);
+    return await this.bookingRepository.update(booking);
   }
 }

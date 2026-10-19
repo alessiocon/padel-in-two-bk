@@ -2,8 +2,7 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { CLOCK_SERVICE, type IClockService } from '../../service/interface/IClockService.js';
 import { BOOKING_IREPOSITORY, type IBookingRepository } from '../infrastructure/booking-IRepository.js';
 import { BookingLogs } from '../domain/valueObject/booking.log.value.js';
-import { BookingRes } from '../presentation/booking.dto.js';
-import { BookingMapper } from '../infrastructure/prisma-booking-mapper.js';
+import { BookingDetailResDto } from '../presentation/booking.dto.js';
 
 export type InviteBookingInput = {
   bookingId: string;
@@ -24,7 +23,7 @@ export class InviteBookingUseCase {
     @Inject(BOOKING_IREPOSITORY) private readonly bookingRepository: IBookingRepository,
   ) {}
 
-  async execute(input: InviteBookingInput): Promise<BookingRes> {
+  async execute(input: InviteBookingInput): Promise<BookingDetailResDto> {
     const booking = await this.bookingRepository.findById(input.bookingId);
     if (!booking) {
       throw new NotFoundException('Prenotazione non trovata.');
@@ -53,8 +52,6 @@ export class InviteBookingUseCase {
     });
 
     const bookingWithLog = updatedBooking.addLogs([auditLog], now);
-    const savedBooking = await this.bookingRepository.update(bookingWithLog);
-
-    return BookingMapper.domainBookingToDto(savedBooking);
+    return await this.bookingRepository.update(bookingWithLog);
   }
 }

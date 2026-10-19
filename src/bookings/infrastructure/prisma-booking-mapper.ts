@@ -11,7 +11,7 @@ import {
   User as PrismaUser
 } from '@prisma/client';
 import { Booking, BookingCancBy, BookingStatus} from '../domain/booking.aggregate.js';
-import { BookingQuickResDto, BookingRes, BookingTeamResDto, BookingUserResDto } from '../presentation/booking.dto.js';
+import { BookingQuickResDto, BookingTeamResDto, BookingDetailResDto } from '../presentation/booking.dto.js';
 import { BookingLogs, BookingEventType } from '../domain/valueObject/booking.log.value.js';
 import { BookingPlayer, BookingPlayerStatus, PlayerIdentity } from '../domain/entity/booking.player.entity.js';
 import { BookingTeam } from '../domain/entity/booking.team.entity.js';
@@ -57,7 +57,7 @@ export type PrismaBookingQuickSummarySelect = Prisma.BookingGetPayload<{
   select: typeof bookingQuickSummarySelect;
 }>;
 
-export const bookingUserDetailsSelct = Prisma.validator<Prisma.BookingSelect>()({
+export const bookingDetailsSelect = Prisma.validator<Prisma.BookingSelect>()({
   id: true,
   courtId: true,
   status: true,
@@ -118,8 +118,8 @@ export const bookingUserDetailsSelct = Prisma.validator<Prisma.BookingSelect>()(
   createdAt: true,
 });
 
-export type PrismaBookingUserDetailsSelect = Prisma.BookingGetPayload<{
-  select: typeof bookingUserDetailsSelct;
+export type PrismaBookingDetailsSelect = Prisma.BookingGetPayload<{
+  select: typeof bookingDetailsSelect;
 }>;
 
 export type PrismaBookingWithDetails = PrismaBooking & {
@@ -281,52 +281,52 @@ export abstract class BookingMapper {
   }
 
 
-  public static domainBookingToDto(booking: Booking): BookingRes {
-    const primitives = booking.toPrimitives();
+  // public static domainBookingToDto(booking: Booking): BookingRes {
+  //   const primitives = booking.toPrimitives();
 
-    return {
-      id: primitives.id,
-      clubId: primitives.clubId,
-      courtId: primitives.courtId,
-      status: primitives.status, // Se l'enum di dominio combacia col DTO
-      startsAt: primitives.startsAt,
-      endsAt: primitives.endsAt,
-      description: primitives.description ?? null,
-      createdBy: {
-        id: primitives.createdById,
-        username: '', // Il dominio ha solo l'ID, lo username richiederebbe un join o un lookup
-        firstName: "",
-        lastName: "",
-      },
-      teams: primitives.teams.map(team => ({
-        id: team.id,
-        teamName: team.teamName,
-        teamNumber: team.teamNumber,
-        players: team.players.map(player => ({
-          id: player.id,
-          userId: player.userId ?? undefined,
-          status: this.PRISMA_TO_DOMAIN_BOOKING_PLAYER_STATUS[player.status],
-          type: player.userId ? "REGISTERED" : "GUEST",
-          firstName: player.firstName ?? null,
-          lastName: player.lastName ?? null,
-          phone: player.phone ?? null,
-        })),
-      })),
+  //   return {
+  //     id: primitives.id,
+  //     clubId: primitives.clubId,
+  //     courtId: primitives.courtId,
+  //     status: primitives.status, // Se l'enum di dominio combacia col DTO
+  //     startsAt: primitives.startsAt,
+  //     endsAt: primitives.endsAt,
+  //     description: primitives.description ?? null,
+  //     createdBy: {
+  //       id: primitives.createdById,
+  //       username: '', // Il dominio ha solo l'ID, lo username richiederebbe un join o un lookup
+  //       firstName: "",
+  //       lastName: "",
+  //     },
+  //     teams: primitives.teams.map(team => ({
+  //       id: team.id,
+  //       teamName: team.teamName,
+  //       teamNumber: team.teamNumber,
+  //       players: team.players.map(player => ({
+  //         id: player.id,
+  //         userId: player.userId ?? undefined,
+  //         status: this.PRISMA_TO_DOMAIN_BOOKING_PLAYER_STATUS[player.status],
+  //         type: player.userId ? "REGISTERED" : "GUEST",
+  //         firstName: player.firstName ?? null,
+  //         lastName: player.lastName ?? null,
+  //         phone: player.phone ?? null,
+  //       })),
+  //     })),
 
-      logs: primitives.logs.map(log => ({
-        eventType: log.eventType,
-        message: log.message,
-        createdAt: log.createdAt.toISOString(),
-        username: null, // Anche qui, il dominio possiede solo lo userId
-      })),
+  //     logs: primitives.logs.map(log => ({
+  //       eventType: log.eventType,
+  //       message: log.message,
+  //       createdAt: log.createdAt.toISOString(),
+  //       username: null, // Anche qui, il dominio possiede solo lo userId
+  //     })),
 
-      cancAt: primitives.cancAt,
-      cancBy: primitives.cancBy,
-      cancPostConfirm: primitives.cancPostConfirm,
-      cancReason: primitives.cancReason,
-      createdAt: primitives.createdAt
-    };
-  }
+  //     cancAt: primitives.cancAt,
+  //     cancBy: primitives.cancBy,
+  //     cancPostConfirm: primitives.cancPostConfirm,
+  //     cancReason: primitives.cancReason,
+  //     createdAt: primitives.createdAt
+  //   };
+  // }
 
   public static domainBookingToPersistence(domainBooking: Booking): Prisma.BookingUncheckedCreateInput & {
     teams?: {
@@ -392,38 +392,38 @@ export abstract class BookingMapper {
 
 
 
-  public static prismaBookingToDto(raw: PrismaBookingWithDetails): BookingRes {
-    return {
-      id: raw.id,
-      clubId: raw.clubId,
-      courtId: raw.courtId,
-      status: this.PRISMA_TO_DOMAIN_BOOKING_STATUS[raw.status],
-      startsAt: raw.startsAt,
-      endsAt: raw.endsAt,
-      description: raw.description,
-      createdBy: {
-        id: raw.createdBy.id,
-        username: raw.createdBy.username,
-        firstName: raw.createdBy.firstName,
-        lastName: raw.createdBy.lastName,
-      },
-      teams: raw.teams.map(team => (this.prismaTeamToDto(team))),
+  // public static prismaBookingToDto(raw: PrismaBookingWithDetails): BookingRes {
+  //   return {
+  //     id: raw.id,
+  //     clubId: raw.clubId,
+  //     courtId: raw.courtId,
+  //     status: this.PRISMA_TO_DOMAIN_BOOKING_STATUS[raw.status],
+  //     startsAt: raw.startsAt,
+  //     endsAt: raw.endsAt,
+  //     description: raw.description,
+  //     createdBy: {
+  //       id: raw.createdBy.id,
+  //       username: raw.createdBy.username,
+  //       firstName: raw.createdBy.firstName,
+  //       lastName: raw.createdBy.lastName,
+  //     },
+  //     teams: raw.teams.map(team => (this.prismaTeamToDto(team))),
       
-      logs: raw.logs.map(log => ({
-        eventType: this.PRISMA_TO_DOMAIN_EVENT_TYPE[log.eventType],
-        message: log.message,
-        createdAt: log.createdAt.toISOString(),
-        username: log.user?.username ?? null, // Molto utile anche nei log!
-      })),
+  //     logs: raw.logs.map(log => ({
+  //       eventType: this.PRISMA_TO_DOMAIN_EVENT_TYPE[log.eventType],
+  //       message: log.message,
+  //       createdAt: log.createdAt.toISOString(),
+  //       username: log.user?.username ?? null, // Molto utile anche nei log!
+  //     })),
 
-      cancAt: raw.cancAt,
-      cancBy: raw.cancBy? this.PRISMA_TO_DOMAIN_BOOKING_CANCELEDBY[raw.cancBy] : null,
-      cancPostConfirm: raw.cancPostConfirm,
-      cancReason: raw.cancReason,
+  //     cancAt: raw.cancAt,
+  //     cancBy: raw.cancBy? this.PRISMA_TO_DOMAIN_BOOKING_CANCELEDBY[raw.cancBy] : null,
+  //     cancPostConfirm: raw.cancPostConfirm,
+  //     cancReason: raw.cancReason,
 
-      createdAt: raw.createdAt
-    };
-  }
+  //     createdAt: raw.createdAt
+  //   };
+  // }
 
   static prismaTeamToDto(team: PrismaTeam & { players: (PrismaPlayer & { user: PrismaUser | null})[];}): BookingTeamResDto {
     return {
@@ -474,19 +474,19 @@ export abstract class BookingMapper {
    * Mappa la proiezione Prisma nel DTO di risposta per i Read Model (BookingsResDto)
    */
   //TODO DA ELIMINARE E UTILIZZARE UN SUMMARY MIGLIORE
-  static toResDto(record: PrismaBookingSummarySelect): BookingRes {
-    return {
-      id: record.id,
-      courtId: record.courtId,
-      status: this.PRISMA_TO_DOMAIN_BOOKING_STATUS[record.status],
-      clubId: record.clubId,
-      description: record.description ?? '',
-      startsAt: record.startsAt,
-      endsAt: record.endsAt,
-    } as BookingRes;
-  }
+  // static toResDto(record: PrismaBookingSummarySelect): BookingRes {
+  //   return {
+  //     id: record.id,
+  //     courtId: record.courtId,
+  //     status: this.PRISMA_TO_DOMAIN_BOOKING_STATUS[record.status],
+  //     clubId: record.clubId,
+  //     description: record.description ?? '',
+  //     startsAt: record.startsAt,
+  //     endsAt: record.endsAt,
+  //   } as BookingRes;
+  // }
 
-  static toQuickResDto(record: PrismaBookingQuickSummarySelect): BookingQuickResDto {
+  static prismaToBookingQuickResDto(record: PrismaBookingQuickSummarySelect): BookingQuickResDto {
     let nPlayer = 0;
     record.teams.forEach(team => {
       team.players.forEach(player => {
@@ -510,7 +510,7 @@ export abstract class BookingMapper {
     };
   }
 
-  static toResUserDto(record: PrismaBookingUserDetailsSelect): BookingUserResDto {
+  static prismaToBookingDetails(record: PrismaBookingDetailsSelect): BookingDetailResDto {
     return {
       id: record.id,
       createdBy: record.createdBy,

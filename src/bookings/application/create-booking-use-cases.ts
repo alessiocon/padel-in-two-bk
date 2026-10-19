@@ -2,11 +2,10 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from "@nes
 import { CLOCK_SERVICE, type IClockService } from "../../service/interface/IClockService.js";
 import { BOOKING_IREPOSITORY, type IBookingRepository } from "../infrastructure/booking-IRepository.js";
 import { CLUB_REPOSITORY, type IClubRepository } from "../../clubs/domain/club-IRepository.js";
-import { BookingRes, CreateBookingTeamDto } from "../presentation/booking.dto.js";
 import { Booking, BookingStatus } from "../domain/booking.aggregate.js";
 import { BookingTeam } from "../domain/entity/booking.team.entity.js";
 import { BookingLogs } from "../domain/valueObject/booking.log.value.js";
-import { BookingMapper } from "../infrastructure/prisma-booking-mapper.js";
+import { BookingQuickResDto } from "../presentation/booking.dto.js";
 
 export type CreateBookingInput = {
   clubId: string;
@@ -42,7 +41,7 @@ export class CreateBookingUseCase {
     @Inject(CLUB_REPOSITORY) private readonly clubRepository: IClubRepository
   ) {}
   
-  async execute(input: CreateBookingInput ): Promise<BookingRes> {
+  async execute(input: CreateBookingInput ): Promise<BookingQuickResDto> {
     const club = await this.clubRepository.findById(input.clubId);
     if (!club) {
       throw new NotFoundException(`Club with ID ${input.clubId} does not exist.`);
@@ -138,7 +137,7 @@ export class CreateBookingUseCase {
     booking = booking.addLogs([auditLog, ...logs], now);
 
     const savedBooking = await this.bookingRepository.create(booking);
-    return BookingMapper.domainBookingToDto(savedBooking);
+    return savedBooking;
   }
 
 

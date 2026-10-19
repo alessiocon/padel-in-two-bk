@@ -2,9 +2,8 @@ import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundEx
 import { CLOCK_SERVICE, type IClockService } from '../../service/interface/IClockService.js';
 import { BOOKING_IREPOSITORY, type IBookingRepository } from '../infrastructure/booking-IRepository.js';
 import { GetClubStaffUseCase } from '../../clubs/application/club-use-cases.js';
-import { Booking, BookingCancBy, BookingStatus } from '../domain/booking.aggregate.js';
-import { BookingMapper } from '../infrastructure/prisma-booking-mapper.js';
-import { BookingRes } from '../presentation/booking.dto.js';
+import { BookingCancBy, BookingStatus } from '../domain/booking.aggregate.js';
+import { BookingDetailResDto } from '../presentation/booking.dto.js';
 
 type CancelPrenotationInput = { 
     bookingId: string, 
@@ -23,7 +22,7 @@ export class CancelPrenotationUseCase {
     private readonly getStaffClub: GetClubStaffUseCase
   ) {}
 
-  async execute(input: CancelPrenotationInput): Promise<BookingRes> {
+  async execute(input: CancelPrenotationInput): Promise<BookingDetailResDto> {
     const time = this.clock.now();
     const booking = await this.repository.findById(input.bookingId);
 
@@ -55,7 +54,6 @@ export class CancelPrenotationUseCase {
         input.userId
     );
 
-    await this.repository.update(updatedBooking);
-    return BookingMapper.domainBookingToDto(updatedBooking);;
+    return await this.repository.update(updatedBooking);
   }
 }

@@ -164,6 +164,31 @@ export class UpdateBookingPlayerDto {
 }
 
 
+
+
+export class SearchBookingQueryDto {
+   from?: string;
+   to?: string;
+   clubId?: string;
+   userId?: string;
+}
+
+
+
+
+
+export class UpdateBookingDto {
+  @ApiProperty({ enum: BookingStatus, example: BookingStatus.RESERVED })
+  @IsOptional()
+  status?: BookingStatus;
+
+  @ApiProperty({ type: String })
+  clubId: string;
+}
+
+
+
+
 export class BookingQuickResDto{
     id: string;
     clubId: string;
@@ -182,128 +207,7 @@ export class BookingQuickResDto{
     
     createdAt: Date;
 }
-
-export class SearchBookingQueryDto {
-   from?: string;
-   to?: string;
-   clubId?: string;
-   userId?: string;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-export class UpdateBookingDto {
-  @ApiProperty({ enum: BookingStatus, example: BookingStatus.RESERVED })
-  @IsOptional()
-  status?: BookingStatus;
-
-  @ApiProperty({ type: String })
-  clubId: string;
-}
-
-
-
-export class BookingResponseDto {
-  @ApiProperty({ format: 'uuid' })
-  id!: string;
-
-  @ApiProperty({ format: 'uuid' })
-  clubId!: string;
-
-  @ApiProperty({ format: 'uuid' })
-  courtId!: string;
-
-  @ApiProperty({ type: String })
-  description?: string;
-
-  @ApiProperty({ format: 'date-time' })
-  startsAt!: Date;
-
-  @ApiProperty({ format: 'date-time' })
-  endsAt!: Date;
-
-  @ApiProperty({ enum: BookingStatus, example: BookingStatus.RESERVED })
-  status!: BookingStatus;
-
-  @ApiProperty({ format: 'date-time' })
-  createdAt!: Date;
-
-  @ApiProperty({ format: 'date-time' })
-  updatedAt!: Date;
-}
-
-export class BookingRes {
-    id: string;
-    clubId: string;
-    courtId: string;
-    createdBy: {
-        id: string,
-        username: string,
-        firstName: string,
-        lastName: string,
-    } | null;
-    description: string | null;
-    startsAt: Date;
-    endsAt: Date;
-    status: BookingStatus;
-    teams: BookingTeamResDto[];
-    logs: BookingLogResDto[];
-
-    cancBy: BookingCancBy | null;
-    cancAt: Date | null;
-    cancPostConfirm: boolean | null;
-    cancReason: string | null;
-
-    createdAt: Date;
-}
-
-export class BookingTeamResDto{
-  id: string;
-  teamNumber: number;
-  teamName: string;  
-  players: BookingPlayerResDto[];
-}
-
-export class BookingPlayerResDto{
-  id: string;
-  username?: string;
-  userId?: string;
-  status: BookingPlayerStatus;
-  type: 'GUEST' | 'REGISTERED';
-  firstName: string | null;
-  lastName: string | null;
-  phone: string | null;
-}
-
-export class BookingLogResDto{
-  eventType: BookingEventType;
-  message: string;
-  username: string | null;
-  createdAt: string;
-}
-
-
-
-
-export class BookingUserResDto {
+export class BookingDetailResDto {
     id: string;
     clubId: string;
     clubName: string;
@@ -335,6 +239,29 @@ export class BookingUserResDto {
 
     createdAt: Date;
 }
+export class BookingLogResDto{
+  eventType: BookingEventType;
+  message: string;
+  username: string | null;
+  createdAt: string;
+}
+export class BookingTeamResDto{
+  id: string;
+  teamNumber: number;
+  teamName: string;  
+  players: BookingPlayerResDto[];
+}
+export class BookingPlayerResDto{
+  id: string;
+  username?: string;
+  userId?: string;
+  status: BookingPlayerStatus;
+  type: 'GUEST' | 'REGISTERED';
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+}
+
 
 export class DeleteBookingDto{
   @ApiProperty({ 

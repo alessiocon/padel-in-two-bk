@@ -12,7 +12,7 @@ import { Booking } from "../domain/booking.aggregate.js";
       private readonly getClubStaffUseCase : GetClubStaffUseCase
     ) {}
 
-    async execute(bookingId: string, userId: string, username: string): Promise<Booking> {
+    async execute(bookingId: string, userId: string, username: string): Promise<boolean> {
       const time = this.clock.now();
       const booking = await this.bookingRepository.findById(bookingId);
 
@@ -26,6 +26,6 @@ import { Booking } from "../domain/booking.aggregate.js";
       await this.bookingRepository.hasOverlappingBooking(bookingAccepted.courtId, bookingAccepted.startsAt, bookingAccepted.endsAt, bookingAccepted.id);
       await this.bookingRepository.update(bookingAccepted);
 
-      return booking;
+      return true;
     }
   }
