@@ -5,7 +5,7 @@ export enum BookingPlayerStatus { PENDING = "PENDING", ACCEPTED= "ACCEPTED", DEC
 
 export type RegisteredPlayerIdentity = {
   readonly type: 'REGISTERED';
-  readonly userId: string;
+  readonly playerId: string;
 };
 
 export type GuestPlayerIdentity = {
@@ -42,14 +42,12 @@ export class BookingPlayer {
   }
 
   public static createRegisteredInvitation(
-    input: { teamId: string; userId: string; bookingCreatorId: string },
+    input: { teamId: string; status: BookingPlayerStatus; playerId: string},
   ): BookingPlayer {
     return this.create({
       teamId: input.teamId,
-      status: input.userId === input.bookingCreatorId
-        ? BookingPlayerStatus.ACCEPTED
-        : BookingPlayerStatus.PENDING,
-      identity: { type: 'REGISTERED', userId: input.userId },
+      status: input.status,
+      identity: { type: 'REGISTERED', playerId: input.playerId },
     });
   }
 
@@ -97,8 +95,8 @@ export class BookingPlayer {
     });
   }
 
-  public get userId(): string | null {
-    return this.props.identity.type === 'REGISTERED' ? this.props.identity.userId : null;
+  public get playerId(): string | null {
+    return this.props.identity.type === 'REGISTERED' ? this.props.identity.playerId : null;
   }
 
   public get guestDetails(): { firstName: string; lastName: string; phone?: string } | null {
@@ -116,7 +114,7 @@ export class BookingPlayer {
     return {
       id: this.props.id,
       teamId: this.props.teamId,
-      userId: this.userId,
+      playerId: this.playerId,
       status: this.status,
       firstName: this.props.identity.type === 'GUEST' ? this.props.identity.firstName : null,
       lastName: this.props.identity.type === 'GUEST' ? this.props.identity.lastName : null,
@@ -129,7 +127,7 @@ export class BookingPlayer {
       throw new Error('BookingPlayer must belong to a team.');
     }
     if (props.identity.type === 'REGISTERED') {
-      if (!props.identity.userId || props.identity.userId.trim() === '') {
+      if (!props.identity.playerId || props.identity.playerId.trim() === '') {
         throw new Error('Registered player must have a valid userId.');
       }
     } else if (props.identity.type === 'GUEST') {

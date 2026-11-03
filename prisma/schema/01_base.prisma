@@ -1,0 +1,16 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+enum MatchFormat {                
+    SINGLE_SET  @map("single_set")
+    BEST_OF_3   @map("best_of_3") 
+                                  
+    @@map("match_format")         
+}                                 
+

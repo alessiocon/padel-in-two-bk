@@ -1,9 +1,3 @@
-export enum UserRole {
-  PLAYER = 'PLAYER',
-  CLUB_OWNER = 'CLUB_OWNER',
-  ADMIN = 'ADMIN',
-}
-
 export interface UserProps {
   id: string;
   email: string;
@@ -13,12 +7,10 @@ export interface UserProps {
   username: string;
   isEmailVerified: boolean;
   phone: string;
-  role: UserRole;
+
   createdAt: Date;
   updatedAt: Date;
-  deleteAt: Date | null;
-  
-  
+  deleteAt: Date | null;  
 }
 
 // Tipo specifico per i dati richiesti alla creazione
@@ -37,7 +29,6 @@ export class User {
   get username(): string { return this.props.username; }
   get createdAt(): Date { return this.props.createdAt; }
   get updatedAt(): Date { return this.props.updatedAt; }
-  get role(): UserRole { return this.props.role; }
   get isEmailVerified(): boolean { return this.props.isEmailVerified; }
   get phone(): string { return this.props.phone; }
 
@@ -48,7 +39,6 @@ export class User {
     return new User({
       ...props,
       id: crypto.randomUUID(),
-      role: UserRole.PLAYER,
       updatedAt: props.createdAt,
       deleteAt: null,
       isEmailVerified: false

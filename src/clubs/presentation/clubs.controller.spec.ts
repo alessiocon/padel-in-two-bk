@@ -12,8 +12,8 @@ import {
 } from '../application/club-use-cases.js';
 import { Club } from '../domain/club.aggregate.js';
 import { ClubConflictError } from '../domain/club-errors.js';
-import { CLUB_REPOSITORY, type IClubRepository } from '../domain/club-IRepository.js';
-import { USER_REPOSITORY, type IUserRepository } from './../../user/domain/user.repository.interface.js';
+import { CLUB_IREPOSITORY, type IClubRepository } from '../domain/club-IRepository.js';
+import { USER_IREPOSITORY, type IUserRepository } from '../../user/infrastructure/user.repository.interface.js';
 import { ClubsController } from './clubs.controller.js';
 import { UserRole } from '../../user/domain/user.entity.js';
 
@@ -73,8 +73,8 @@ describe('ClubsController (HTTP)', () => {
     const module = await Test.createTestingModule({
       controllers: [ClubsController],
       providers: [
-        { provide: CLUB_REPOSITORY, useValue: repository },
-        { provide: USER_REPOSITORY, useValue: userRepository },
+        { provide: CLUB_IREPOSITORY, useValue: repository },
+        { provide: USER_IREPOSITORY, useValue: userRepository },
         {
           provide: CreateClubUseCase,
           useFactory: () => new CreateClubUseCase(repository, userRepository),

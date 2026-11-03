@@ -34,7 +34,6 @@ import { ClubConflictError, ClubNotFoundError } from '../domain/club-errors.js';
 import { Club } from '../domain/club.aggregate.js';
 import { CreateClubDto, ClubsResDto, UpdateClubDto, ClubResDto } from './club.dto.js';
 import { Auth } from '../../auth/infrastructure/decorators/auth.decorator.js';
-import { UserRole } from '../../user/domain/user.entity.js';
 
 @ApiTags('clubs')
 @ApiBearerAuth('access-token')
@@ -90,7 +89,8 @@ export class ClubsController {
         openingTime: body.openingTime, 
         closingTime: body.closingTime, 
         courtInDoor: body.courtInDoor,
-        courtOutDoor: body.courtOutDoor
+        courtOutDoor: body.courtOutDoor,
+        members: body.members
       }));
     } catch (error) {
       throw this.toHttpError(error);

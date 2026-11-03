@@ -25,21 +25,23 @@ export class CancelPrenotationUseCase {
   async execute(input: CancelPrenotationInput): Promise<BookingDetailResDto> {
     const time = this.clock.now();
     const booking = await this.repository.findById(input.bookingId);
-
+    
     if (booking === null) { throw new NotFoundException("Prenotazione non trovata");}
+
+    if (booking.status !== BookingStatus.PENDING && 
+        booking.status !== BookingStatus.RESERVED && 
+        booking.status !== BookingStatus.CONFIRMED
+       ){ throw new NotFoundException("Impossibile eliminare la prenotazione in questo stato");}
     
     if(input.isStaff){
-      const staff = await this.getStaffClub.execute(booking.clubId)
-      if(!staff.includes(input.userId)) { throw new ForbiddenException("Autorizzazione non concessa");}
+      const members = await this.getStaffClub.execute(booking.clubId)
+      if(!members.find(member => member.userId === input.userId )) { throw new ForbiddenException("Autorizzazione non concessa");}
       
     }else{
-      if (booking.createdById !== input.userId && booking.status === BookingStatus.RESERVED) 
+      if (booking.createdById !== input.userId) 
         { throw new ForbiddenException("Autorizzazione non concessa"); }
     }
 
-    if(booking.status === BookingStatus.CANCELLED) { 
-        throw new BadRequestException("Prenotazione già cancellata");
-    }
 
     let updatedBooking = booking.CancelPrenotation(
         {
@@ -50,7 +52,7 @@ export class CancelPrenotationUseCase {
             cancPostConfirm: true,
             cancReason: input.reason
         },
-        input.isStaff ? "il Club" : input.username,
+        booking.createdByStaff ? "il Club" : input.username,
         input.userId
     );
 

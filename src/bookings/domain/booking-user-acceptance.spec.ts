@@ -13,7 +13,7 @@ describe('Booking.isAcceptedBookingByUser', () => {
     }, 'team-1').addPlayer(BookingPlayer.create({
       teamId: 'team-1',
       status: BookingPlayerStatus.PENDING,
-      identity: { type: 'REGISTERED', userId: 'player-1' },
+      identity: { type: 'REGISTERED', playerId: 'player-1' },
     }, 'player-1'));
 
     return Booking.create({

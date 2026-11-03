@@ -1,0 +1,45 @@
+model Player {
+  id               String       @id @default(uuid()) @db.Uuid
+  userId           String       @unique @map("user_id") @db.Uuid
+  
+  // -- Campi di Livello e Statistiche (incorporati senza tabelle extra) --
+  level            Decimal      @default(1.00) @db.Decimal(3, 2) // es. 3.50
+  matchesPlayed    Int          @default(0) @map("matches_played")
+  wins             Int          @default(0)
+  losses           Int          @default(0)
+  reliabilityScore Decimal      @default(100.00) @map("reliability_score") @db.Decimal(5, 2)
+
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relazioni esistenti
+  user                     User             @relation("UserPlayer", fields: [userId], references: [id], onDelete: Cascade)
+  tournamentTeamsAsPlayer1 TournamentTeam[] @relation("TournamentTeamsPlayer1")
+  tournamentTeamsAsPlayer2 TournamentTeam[] @relation("TournamentTeamsPlayer2")
+  bookingPlayers           BookingPlayer[]  @relation("BookingPlayer")
+  
+  // Storico opzionale legato tramite vera FK
+  levelHistory             PlayerLevelHistory[]
+
+  @@map("players")
+}
+
+
+model PlayerLevelHistory {
+  id                    String              @id @default(uuid()) @db.Uuid
+  playerId              String              @map("player_id") @db.Uuid
+  
+  bookingMatchId        String?             @map("booking_match_id") @db.Uuid
+  tournamentMatchId     String?             @map("tournament_match_id") @db.Uuid // TournamentMatch id
+
+  levelBefore           Decimal             @map("level_before") @db.Decimal(3, 2)
+  levelAfter            Decimal             @map("level_after") @db.Decimal(3, 2)
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz
+
+  player                Player              @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  bookingMatch          BookingMatch?       @relation("BookingLevel" ,fields: [bookingMatchId], references: [id], onDelete: SetNull)
+  tournamentMatch       TournamentMatch?    @relation("TournamentLevel" ,fields: [tournamentMatchId], references: [id], onDelete: SetNull)
+
+  @@index([playerId])
+  @@map("player_level_history")
+}

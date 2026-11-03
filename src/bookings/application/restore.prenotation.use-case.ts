@@ -26,16 +26,17 @@ export class RestorePrenotationUseCase {
 
         let status = BookingStatus.CANCELLED;
         if(isReqStaff){
-        const staff = await this.getClubStaffUseCase.execute(booking.clubId);
+         const members = await this.getClubStaffUseCase.execute(booking.clubId);
+            if (!members.find(member => member.userId === userId )) { throw new ForbiddenException("Autorizzazione non concessa") }
+            if (booking.cancBy !== BookingCancBy.CLUB) { throw new ForbiddenException("La cancellazione è partita dall'utente non puoi ripristinarla");}
 
-        if (!staff.includes(userId)) { throw new ForbiddenException("Autorizzazione non concessa") }
-        if (booking.cancBy !== BookingCancBy.CLUB) { throw new ForbiddenException("La cancellazione è partita dall'utente non puoi ripristinarla");}
-
-        status = staff.includes(booking.createdById) ? BookingStatus.RESERVED : BookingStatus.CONFIRMED;
-
+            status = booking.createdByStaff ? BookingStatus.RESERVED : BookingStatus.CONFIRMED;
         }else{
-        if (booking.createdById !== userId || booking.cancBy !== BookingCancBy.USER) { throw new ForbiddenException("Autorizzazione non concessa");}
-        status = booking.cancPostConfirm ? BookingStatus.CONFIRMED : BookingStatus.PENDING;
+            if (booking.createdById !== userId || booking.cancBy !== BookingCancBy.USER) 
+            { 
+                throw new ForbiddenException("Autorizzazione non concessa");
+            }
+            status = booking.cancPostConfirm ? BookingStatus.CONFIRMED : BookingStatus.PENDING;
         }
 
         let updatedBooking = booking.RestorePrenotation(

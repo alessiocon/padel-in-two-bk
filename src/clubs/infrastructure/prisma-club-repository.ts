@@ -3,8 +3,9 @@ import { PrismaService } from '../../database/prisma.service.js';
 import { Club } from '../domain/club.aggregate.js';
 import { ClubConflictError, ClubNotFoundError } from '../domain/club-errors.js';
 import type { IClubRepository } from '../domain/club-IRepository.js';
-import { clubDetailSelect, ClubMapper, clubStaffSelect, clubSummarySelect } from './prisma-club-mapper.js';
+import { clubDetailSelect, ClubMapper, clubSummarySelect } from './prisma-club-mapper.js';
 import { ClubResDto, ClubsResDto } from './../presentation/club.dto.js';
+import { ClubMember } from '../domain/entity/club.member.entity.js';
 
 
 @Injectable()
@@ -13,12 +14,12 @@ export class PrismaClubRepository implements IClubRepository {
 
 
   async findAll(): Promise<Club[]> {
-    const records = await this.prisma.club.findMany({ orderBy: { createdAt: 'asc' }, include: { courts: true } });
+    const records = await this.prisma.club.findMany({ orderBy: { createdAt: 'asc' }, include: { courts: true, members: true} });
     return records.map((record) => ClubMapper.toDomain(record));
   }
 
   async findById(id: string): Promise<Club | null> {
-    const record = await this.prisma.club.findUnique({ where: { id }, include: { courts: true } });
+    const record = await this.prisma.club.findUnique({ where: { id: id }, include: { courts: true, members: true } });
     return record ? ClubMapper.toDomain(record) : null;
   }
 
@@ -31,7 +32,7 @@ export class PrismaClubRepository implements IClubRepository {
         });
         return transaction.club.findUniqueOrThrow({
           where: { id: club.id },
-          include: { courts: true },
+          include: { courts: true, members: true },
         });
       });
       return ClubMapper.toDomain(record);
@@ -52,7 +53,7 @@ export class PrismaClubRepository implements IClubRepository {
           openingTime: club.openingTime,
           closingTime: club.closingTime,
         },
-        include: { courts: true },
+        include: { courts: true, members: true },
       });
       return ClubMapper.toDomain(record);
     } catch (error) {
@@ -91,14 +92,16 @@ export class PrismaClubRepository implements IClubRepository {
     return ClubMapper.toDetailDto(record);
   }
 
-    async RO_ClubStaff(id: string): Promise<string[]> {
+    async RO_ClubStaff(id: string): Promise<ClubMember[]> {
     const record = await this.prisma.club.findUnique({
-      where: { id },
-      select: clubStaffSelect,
+      where: { id: id},
+      select: {
+        members: true
+      }
     });
 
     if (!record) throw new NotFoundException("Club non trovato");
-    return [record.ownerId];
+    return record.members.map((member) => ClubMapper.prismaToClubMemberDomain(member));
   }
 
 

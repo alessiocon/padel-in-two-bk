@@ -49,7 +49,7 @@ describe('PrismaClubRepository (integration)', () => {
     const club = Club.create({
       name: `Integration Club ${randomUUID()}`,
       email: `${randomUUID()}@example.com`,
-      ownerId: owner.id,
+      managerId: owner.id,
       courtCount: 2,
     });
 
@@ -76,7 +76,7 @@ describe('PrismaClubRepository (integration)', () => {
     const now = new Date();
     const club = Club.reconstitute({
       id,
-      ownerId: owner.id,
+      managerId: owner.id,
       name: `Rollback Club ${randomUUID()}`,
       status: 'active',
       email: `${randomUUID()}@example.com`,
@@ -109,13 +109,13 @@ describe('PrismaClubRepository (integration)', () => {
     const first = Club.create({
       name: `Email Club ${randomUUID()}`,
       email: email.toUpperCase(),
-      ownerId: owner.id,
+      managerId: owner.id,
       courtCount: 1,
     });
     const duplicate = Club.create({
       name: `Email Duplicate ${randomUUID()}`,
       email,
-      ownerId: owner.id,
+      managerId: owner.id,
       courtCount: 1,
     });
 

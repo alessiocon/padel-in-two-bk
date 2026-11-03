@@ -1,0 +1,176 @@
+
+enum BookingStatus {
+  RESERVED    @map("reserved")
+  PENDING     @map("pending")
+  CONFIRMED   @map("confirmed")
+  IN_PROGRESS @map("in_progress")
+  END         @map("end")
+  CANCELLED   @map("cancelled")
+
+  @@map("booking_status")
+}
+
+enum BookingCancBy {
+  USER  @map("user")
+  CLUB  @map("club")
+}
+
+
+
+model Booking {
+  id                String                @id @default(uuid()) @db.Uuid
+  clubId            String                @map("club_id") @db.Uuid
+  courtId           String                @map("court_id") @db.Uuid
+  createdById       String                @map("created_by_user_id") @db.Uuid 
+  createdByStaff    Boolean               @default(false) @map("created_by_staf")
+  
+  description       String?               @db.VarChar(255)
+
+  startsAt          DateTime              @map("starts_at") @db.Timestamptz
+  endsAt            DateTime              @map("ends_at") @db.Timestamptz
+  status            BookingStatus         @default(RESERVED)
+         
+  cancBy            BookingCancBy?        @map("cancelled_by")       
+  cancAt            DateTime?             @map("cancelled_at")       
+  cancPostConfirm   Boolean?              @map("cancelled_post_confirm")
+  cancReason        String?               @db.VarChar(255) @map("cancellation_reason")
+
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz
+
+  club              Club                  @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  court             Court                 @relation(fields: [courtId, clubId], references: [id, clubId], onDelete: Cascade)
+  createdBy         User                  @relation("BookingCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  teams             BookingTeam[]         @relation("BookingTeam")
+  logs              BookingLogs[]         @relation("BookingLogs")
+  match             BookingMatch?         @relation("BookingMatch")
+
+  @@unique([id, clubId])
+  @@index([clubId, startsAt, endsAt])
+  @@index([courtId, startsAt, endsAt])
+  @@index([createdById])
+  @@map("bookings")
+}
+
+
+model BookingTeam {
+  id          String            @id @default(uuid()) @db.Uuid
+  bookingId   String            @map("booking_id") @db.Uuid
+ 
+  teamNumber  Int               @map("team_number") // Es. 1 (Team di casa) o 2 (Team ospite)
+  teamName    String            @map("team_name") @db.VarChar(50)
+
+  players     BookingPlayer[]   @relation("BookingTeam")
+  booking     Booking           @relation("BookingTeam",fields: [bookingId], references: [id], onDelete: Cascade)
+  proposes    BookingMatch[]    @relation("TeamProposeMatch")
+
+  @@index([bookingId, teamNumber])
+  @@index([bookingId])
+  @@map("booking_teams")
+}
+
+enum BookingPlayerStatus {
+  PENDING 
+  ACCEPTED
+  DECLINED
+  REMOVED 
+}
+
+model BookingPlayer {
+  id          String                @id @default(uuid()) @db.Uuid
+  teamId      String                @map("team_id") @db.Uuid
+  team        BookingTeam           @relation("BookingTeam", fields: [teamId], references: [id], onDelete: Cascade)
+  
+  playerId    String?               @map("player_id") @db.Uuid
+  player      Player?               @relation("BookingPlayer", fields: [playerId], references: [id], onDelete: SetNull)
+
+  status      BookingPlayerStatus   @default(PENDING) @map("status")
+
+  firstName   String?               @map("first_name") @db.VarChar(24)
+  lastName    String?               @map("last_name") @db.VarChar(24)
+  phone       String?               @map("phone") @db.VarChar(30)
+
+  @@index([playerId])
+  @@map("booking_players")
+}
+
+
+enum BookingEventType {
+  CREATED
+  INSERT
+  REMOVED
+  PLAYER_JOINED
+  PLAYER_LEFT
+  STATUS_CHANGED
+  CANCELLED
+
+  @@map("booking_event_type")
+}
+
+model BookingLogs {
+  id          String            @id @default(uuid()) @db.Uuid
+  bookingId   String            @map("booking_id") @db.Uuid
+  
+
+  userId      String?          @map("user_id") @db.Uuid
+  
+
+  eventType   BookingEventType  @map("event_type")
+  message     String            @db.VarChar(255)
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  booking     Booking           @relation("BookingLogs",fields: [bookingId], references: [id], onDelete: Cascade)
+  user        User?             @relation("UserBookingLogs", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([bookingId])
+  @@index([userId])
+  @@map("booking_audit_logs")
+}
+
+
+enum MatchPropose {
+  PENDING     @map("pending")
+  ACCEPTED    @map("accepted")
+  DECLINED    @map("declined")
+
+  @@map("match_propose")
+}
+
+model BookingMatch {
+    id                  String                  @id @default(uuid()) @db.Uuid
+    bookingId           String                  @unique @map("booking_id") @db.Uuid
+
+    winnerTeamNumber    Int                     @map("winner_team_number") // 1 o 2 (l'altro è automaticamente il perdente)
+    format              MatchFormat             @default(SINGLE_SET) @map("format")
+    proposeByTeamId     String?                 @map("propose_by_team_id") @db.Uuid
+    proposeNumber       Int                     @map("propose_number")
+    status              MatchPropose            @default(PENDING) @map("status")
+    
+
+    createdAt           DateTime                @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt           DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+
+    // Relazioni        
+    booking             Booking                 @relation("BookingMatch", fields: [bookingId], references: [id], onDelete: Cascade)
+    proposeTeam         BookingTeam?            @relation("TeamProposeMatch", fields: [proposeByTeamId], references: [id], onDelete: SetNull)
+    sets                BookingMatchSet[]       @relation("BookingSet")
+    levelChanges        PlayerLevelHistory[]    @relation("BookingLevel")
+
+
+    @@index([bookingId])
+    @@map("booking_matches")
+}
+
+model BookingMatchSet {
+    id          String          @id @default(uuid()) @db.Uuid
+    matchId     String          @map("match_id") @db.Uuid
+    setNumber   Int             @map("set_number")
+    team1Games  Int             @default(0) @map("team1_games")
+    team2Games  Int             @default(0) @map("team2_games")
+    tieBreak    Boolean         @default(false) @map("tie_break")
+
+    match       BookingMatch    @relation("BookingSet",fields: [matchId], references: [id], onDelete: Cascade)
+
+    @@unique([matchId, setNumber])
+    @@map("booking_match_sets")
+}

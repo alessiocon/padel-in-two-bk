@@ -1,12 +1,10 @@
-import { UserRole } from './../../user/domain/user.entity.js';
-
 export interface JwtPayload {
   sub: string;       
   email: string;
   firstName: string;
   lastName: string;
   username: string;
-  role: UserRole;
+  playerId?: string;
 }
 
 export interface AuthTokens {

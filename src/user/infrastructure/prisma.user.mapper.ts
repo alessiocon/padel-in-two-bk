@@ -7,6 +7,7 @@ import { UserSearchListResDto } from '../presentation/user.dto.js';
 
 export const userListSelect = Prisma.validator<Prisma.UserSelect>()({
   id: true,
+  player: {select: {id: true}},
   firstName:true,
   lastName: true,
   username: true,

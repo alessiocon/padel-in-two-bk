@@ -1,6 +1,5 @@
 import { Injectable, UnauthorizedException, Inject, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { USER_REPOSITORY, type IUserRepository } from '../../user/domain/user.repository.interface.js';
 import { PasswordHasher } from '../../user/infrastructure/password.hasher.js';
 import { JwtPayload } from '../domain/jwt-payload.interface.js';
 import { AuthTokens } from './../domain/tokens.interface.js';
@@ -13,12 +12,13 @@ import { TokenType } from '../../token/domain/token.entity.js';
 import { resetPasswordReqDto } from '../presentation/auth.dto.js';
 import { updateUserUseCase } from '../../user/application/user.use-cases.js';
 import { randomBytes } from 'crypto';
+import { type IUserRepository, USER_IREPOSITORY } from '../../user/infrastructure/user.repository.interface.js';
 
 
 @Injectable()
 export class ValidateUserUseCase {
   constructor(
-    @Inject(USER_REPOSITORY) private readonly user: IUserRepository,
+    @Inject(USER_IREPOSITORY) private readonly user: IUserRepository,
   ) {}
 
   async execute(email: string, pass: string) {
@@ -42,47 +42,33 @@ export class ValidateUserUseCase {
 @Injectable()
 export class LoginUseCase {
   constructor(
-    @Inject(USER_REPOSITORY) private readonly userRepo: IUserRepository,
+    @Inject(USER_IREPOSITORY) private readonly userRepo: IUserRepository,
     private readonly jwtService: JwtService,
   ) {}
 
   async execute(user: User): Promise<AuthTokens> {
 
-    const userdb = await this.userRepo.findById(user.id);
-    if (!userdb) {
-      throw new BadRequestException('Utente non trovato');
-    }
+    const userdb = await this.userRepo.RO_findAuth(user.id);
 
     if(!userdb.isEmailVerified){
-      throw new UnauthorizedException(`Per effettuare l\'accesso  devi confermare la tua email:${userdb.id}`);
+      throw new UnauthorizedException(`Per effettuare l\'accesso  devi confermare la tua email:${userdb.sub}`);
     }
 
+    let {isEmailVerified, ...element} = userdb;
     const payload: JwtPayload = {
-      sub: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      username: user.username,
-      role: user.role,
+      ...element
     };
 
     return {
       accessToken: this.jwtService.sign(payload),
-      user: user.toResponse ? user.toResponse() : {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        username: user.username,
-        role: user.role,
-      },
+      user: payload
     };
   }
 }
 
 export class emailConfirmation {
   constructor(
-    @Inject(USER_REPOSITORY) private readonly user: IUserRepository,
+    @Inject(USER_IREPOSITORY) private readonly user: IUserRepository,
     @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
   ) {}
 
@@ -100,7 +86,7 @@ export class emailConfirmation {
 
 export class sendEmailConfirmation {
   constructor(
-    @Inject(USER_REPOSITORY) private readonly user: IUserRepository,
+    @Inject(USER_IREPOSITORY) private readonly user: IUserRepository,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
@@ -125,7 +111,7 @@ export class sendEmailConfirmation {
 
 export class sendEmailForgotPassword {
   constructor(
-    @Inject(USER_REPOSITORY) private readonly user: IUserRepository,
+    @Inject(USER_IREPOSITORY) private readonly user: IUserRepository,
     private readonly eventEmitter: EventEmitter2,
     private readonly createTokenUseCase: createTokenUseCase
   ) {}
@@ -162,7 +148,7 @@ export class sendEmailForgotPassword {
 
 export class resetPassword {
   constructor(
-    @Inject(USER_REPOSITORY) private readonly user: IUserRepository,
+    @Inject(USER_IREPOSITORY) private readonly user: IUserRepository,
     @Inject(CLOCK_SERVICE)   private readonly clock: IClockService,
     private readonly findTokenUseCase: findTokenUseCase,
     private readonly updateUserUserCase: updateUserUseCase,

@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { DateTime } from 'luxon';
 
 export enum CourtStatus {
@@ -13,6 +14,7 @@ export type CourtProps = {
   name: string;
   isIndoor: boolean;
   price: number;
+  size: number;
   status: CourtStatus;
   offsetMinutes: number;
 };
@@ -34,6 +36,7 @@ export class Court {
       name: input.name.trim(),
       isIndoor: input.isIndoor,
       price: input.price,
+      size: input.size,
       status: CourtStatus.AVAILABLE,
       offsetMinutes: input.offsetMinutes ?? 0,
     });
@@ -52,6 +55,7 @@ export class Court {
   get name(): string { return this.props.name; }
   get isIndoor(): boolean { return this.props.isIndoor; }
   get price(): number { return this.props.price; }
+  get size(): number { return this.props.size; }
   get status(): CourtStatus { return this.props.status; }
   get offsetMinutes(): number { return this.props.offsetMinutes; }
 
@@ -89,16 +93,16 @@ export class Court {
     const endTotMinutes = end.hour * 60 + end.minute;
 
     if (startTotMinutes < openTotMinutes) {
-      throw new Error(`L'orario di inizio precede l'apertura effettiva del campo (${clubOpeningTime} + ${this.props.offsetMinutes}m offset).`);
+      throw new BadRequestException(`L'orario di inizio precede l'apertura effettiva del campo (${clubOpeningTime} + ${this.props.offsetMinutes}m offset).`);
     }
 
     if (endTotMinutes > closeTotMinutes) {
-      throw new Error(`L'orario di fine supera la chiusura del club (${clubClosingTime}).`);
+      throw new BadRequestException(`L'orario di fine supera la chiusura del club (${clubClosingTime}).`);
     }
 
     const minutesFromOpening = startTotMinutes - openTotMinutes;
     if (minutesFromOpening % clubSlotDuration !== 0) {
-      throw new Error(`L'orario di inizio non è allineato con gli slot da ${clubSlotDuration} minuti per questo campo.`);
+      throw new BadRequestException(`L'orario di inizio non è allineato con gli slot da ${clubSlotDuration} minuti per questo campo.`);
     }
   }
 

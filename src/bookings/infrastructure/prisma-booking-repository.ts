@@ -3,9 +3,11 @@ import { PrismaService } from '../../database/prisma.service.js';
 import { Booking, BookingStatus } from '../domain/booking.aggregate.js';
 import { BookingConflictError, BookingCourtNotFoundError } from '../domain/booking-errors.js';
 import type { IBookingRepository } from '../infrastructure/booking-IRepository.js';
-import { BookingMapper, bookingQuickSummarySelect, bookingSummarySelect, bookingDetailsSelect } from './prisma-booking-mapper.js';
-import { BookingQuickResDto, BookingDetailResDto } from '../presentation/booking.dto.js';
+import { BookingMapper, bookingQuickSummarySelect, bookingSummarySelect, bookingDetailsSelect, bookingMatchSelect } from './prisma-booking-mapper.js';
+import { BookingQuickResDto, BookingDetailResDto, SearchBookingQuery, BookingMatchResDto } from '../presentation/booking.dto.js';
 import { Prisma } from '@prisma/client';
+import { TournamentMapper } from '../../tournament/infrastracture/prisma-tournament-mapper.js';
+import { BookingMatch } from '../domain/entity/booking.match.entity.js';
 
 @Injectable()
 export class PrismaBookingRepository implements IBookingRepository {
@@ -43,6 +45,12 @@ export class PrismaBookingRepository implements IBookingRepository {
           },
         },
         logs: { orderBy: { createdAt: 'desc' } },
+        match: {
+          include: {
+            sets: true
+          }
+        },
+        court: { select: {size: true }},
       },
     });
 
@@ -55,32 +63,32 @@ export class PrismaBookingRepository implements IBookingRepository {
 
 
   //QUESTO é IN READONLY
-  async findAllByClubId(clubId: string, query: string): Promise<Booking[]> {
-    const whereCondition: any = { clubId };
+  // async findAllByClubId(clubId: string, query: string): Promise<Booking[]> {
+  //   const whereCondition: any = { clubId };
 
-    const startOfDay = new Date(`${query}T00:00:00.000Z`);
-    const endOfDay = new Date(`${query}T23:59:59.999Z`);
+  //   const startOfDay = new Date(`${query}T00:00:00.000Z`);
+  //   const endOfDay = new Date(`${query}T23:59:59.999Z`);
 
-    whereCondition.startsAt = {
-      gte: startOfDay,
-      lte: endOfDay,
-    };
+  //   whereCondition.startsAt = {
+  //     gte: startOfDay,
+  //     lte: endOfDay,
+  //   };
 
 
-    const records = await this.prisma.booking.findMany({ 
-      where: whereCondition, 
-      include: {
-        teams: {
-          include: {
-            players: true,
-          },
-        },
-        logs: { orderBy: { createdAt: 'desc' } },
-      },
-      orderBy: {startsAt: 'desc'} });
+  //   const records = await this.prisma.booking.findMany({ 
+  //     where: whereCondition, 
+  //     include: {
+  //       teams: {
+  //         include: {
+  //           players: true,
+  //         },
+  //       },
+  //       logs: { orderBy: { createdAt: 'desc' } },
+  //     },
+  //     orderBy: {startsAt: 'desc'} });
 
-    return records.map((record) => BookingMapper.prismaBookingToDomain(record));
-  }
+  //   return records.map((record) => BookingMapper.prismaBookingToDomain(record));
+  // }
 
   async hasOverlappingBooking(
     courtId: string, 
@@ -111,7 +119,7 @@ export class PrismaBookingRepository implements IBookingRepository {
       const record = await this.prisma.$transaction(async (transaction) => {
         const newLogs = await this.findNewLogs(transaction, booking);
         await this.removeDeletedTeamsAndPlayers(transaction, booking);
-
+        
         return transaction.booking.update({
           where: { id: booking.id },
           data: {
@@ -153,6 +161,99 @@ export class PrismaBookingRepository implements IBookingRepository {
       throw error;
     }
   }
+
+  async saveMatch(booking: Booking): Promise<BookingMatchResDto> {
+    try {
+      const matchUpsert = this.buildMatchUpsert(booking);
+      if (!matchUpsert) {
+        throw new BadRequestException("Nessun match presente da salvare.");
+      }
+
+      const record = await this.prisma.$transaction(async (transaction) => {
+        const newLogs = await this.findNewLogs(transaction, booking);
+
+        if (newLogs.length > 0) {
+          await transaction.bookingLogs.createMany({
+            data: newLogs.map((log) => ({
+              bookingId: booking.id,
+              userId: log.userId,
+              eventType: BookingMapper.DOMAIN_TO_PRISMA_EVENT_TYPE[log.eventType],
+              message: log.message,
+              createdAt: log.createdAt,
+            })),
+          });
+        }
+
+        const savedMatchRecord = await transaction.bookingMatch.upsert({
+          where: { id: matchUpsert.where.id },
+          create: matchUpsert.matchCreateData,
+          update: matchUpsert.matchUpdateData,
+          select: bookingMatchSelect
+        });
+
+        return savedMatchRecord;
+      });
+
+      return BookingMapper.prismaToMatchDto(record);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+   public buildMatchUpsert(booking: Booking)  {
+    const match = booking.match; 
+    if (!match) return undefined; 
+
+    const matchData = match.toPrimitives();
+
+    const matchCreateData: Prisma.BookingMatchCreateInput = {
+        id: match.id,
+        format: TournamentMapper.DOMAIN_TO_PRISMA_MATCH_FORMAT[matchData.format],
+        status: BookingMapper.DOMAIN_TO_PRISMA_MATCH_PROPOSE[matchData.status],
+        proposeTeam: matchData.proposeByTeamId ? { connect: { id: matchData.proposeByTeamId} } : undefined, 
+        winnerTeamNumber: matchData.winnerTeamNumber,
+        proposeNumber: matchData.proposeNumber,
+        booking: { connect: { id: booking.id } },
+        sets: {
+          create: match.score.value.map((set) => ({
+            setNumber: set.setNumber,
+            team1Games: set.team1Games,
+            team2Games: set.team2Games,
+            tieBreak: set.tieBreak,
+          })),
+        },
+      };
+
+      let {id, proposeNumber, sets, ...properties } = matchCreateData;
+
+      const matchUpdateData: Prisma.BookingMatchUpdateInput = {
+        ...properties,
+        proposeNumber: matchData.proposeNumber + 1,
+        sets: {
+          deleteMany: {},
+          create: sets?.create,
+        },
+      };
+
+    return {
+      where: { id: match.id },
+      matchCreateData,
+      matchUpdateData
+    };
+  }
+  
+
+  async deleteMatch(booking: Booking) : Promise<void>{
+    try{
+      await this.prisma.bookingMatch.delete({
+        where: {bookingId: booking.id}
+      });
+
+    }catch(error){
+      throw error;
+    }
+  }
+
 
   private async findNewLogs(transaction: Prisma.TransactionClient, booking: Booking) {
     const existingLogs = await transaction.bookingLogs.findMany({
@@ -254,7 +355,7 @@ export class PrismaBookingRepository implements IBookingRepository {
   private toPlayerPersistence(player: Booking['teams'][number]['players'][number]) {
     const guest = player.guestDetails;
     return {
-      userId: player.userId,
+      playerId: player.playerId,
       status: BookingMapper.DOMAIN_TO_PRISMA_BOOKING_PLAYER_STATUS[player.status],
       firstName: guest?.firstName ?? null,
       lastName: guest?.lastName ?? null,
@@ -318,45 +419,40 @@ export class PrismaBookingRepository implements IBookingRepository {
     return records.map((record) => BookingMapper.prismaToBookingQuickResDto(record));
   }
 
-  async RO_SearchBookings(
-    clubId?: string,
-    from?: Date,
-    to?: Date,
-    userId?: string,
-    status?: BookingStatus,
-  ): Promise<BookingQuickResDto[]> {
+
+   //TODO: QUI SPECIFICARE USERID, PlayerId e ManagerId che attualmente prende sempre userId e non va bene
+  async RO_SearchBookings(query: SearchBookingQuery & {from?: Date, to?: Date}) : Promise<BookingQuickResDto[]> {
+
+    const orConditions: Prisma.BookingWhereInput[] = [];
+
+    if (query.createdById) {
+      orConditions.push({ createdById: query.createdById });
+    }
+
+    if (query.playerId) {
+      orConditions.push({
+        teams: { some: {  players: { some: { playerId: query.playerId },},},},});
+    }
+
     const whereCondition: Prisma.BookingWhereInput = {
-      ...(clubId ? { clubId } : {}),
-      ...(status ? {status}: {}),
-      ...(from || to
+      ...(query.clubId ? { clubId: query.clubId } : {}),
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.from || query.to
         ? {
             startsAt: {
-              ...(from ? { gte: from } : {}),
-              ...(to ? { lte: to } : {}),
+              ...(query.from ? { gte: query.from } : {}),
+              ...(query.to ? { lte: query.to } : {}),
             },
           }
         : {}),
-      ...(userId
-        ? {
-            OR: [
-              { createdById: userId },
-              {
-                teams: {
-                  some: {
-                    players: {
-                      some: { userId },
-                    },
-                  },
-                },
-              },
-            ],
-          }
-        : {}),
+      ...(orConditions.length > 0 ? { OR: orConditions } : {}),
+      ...(query.member ? { club: { members: { some: { userId: query.createdById } } } } : {}),
     };
 
     const records = await this.prisma.booking.findMany({
       where: whereCondition,
       select: bookingQuickSummarySelect,
+      take: 30,
       orderBy: { startsAt: 'desc' },
     });
 
@@ -365,14 +461,14 @@ export class PrismaBookingRepository implements IBookingRepository {
 
 
 
-  async RO_FindDetailsById(id: string, userId: string): Promise<BookingDetailResDto> {
+  async RO_FindDetailsById(id: string, userId: string, playerId: string): Promise<BookingDetailResDto> {
 
     const whereCondition: Prisma.BookingWhereInput = {
       id,
       OR: [
-        { createdById: userId },
-        {club: {ownerId: userId}},
-        {teams: { some: { players: { some: { userId },},},},},
+        {createdById: userId },
+        {club: {members: {some: { userId : userId} } } },
+        {teams: { some: { players: { some: { playerId: playerId },},},},},
       ]
     };
 
@@ -385,7 +481,31 @@ export class PrismaBookingRepository implements IBookingRepository {
     return BookingMapper.prismaToBookingDetails(record);
   }
 
+  async RO_FindMatchByBookingId(bookingId: string, userId: string, playerId: string): Promise<BookingMatchResDto | null> {
+    const whereCondition: Prisma.BookingMatchWhereInput = {
+      bookingId: bookingId,
+      booking: {
+        OR: [
+          {createdById: userId },
+          {club: {members: {some: { userId : userId} } } },
+          {teams: { some: { players: { some: { playerId: playerId },},},},},
+        ]
+      }
+    };
+
+    const record = await this.prisma.bookingMatch.findFirst({
+      where: whereCondition,
+      select: bookingMatchSelect
+    });
+
+    if(!record) return null;
+    return BookingMapper.prismaToMatchDto(record);
+
+  }
+
   private isOverlapError(error: unknown): boolean {
     return error instanceof Error && error.message.includes('bookings_no_active_overlap');
   }
+
+  
 }

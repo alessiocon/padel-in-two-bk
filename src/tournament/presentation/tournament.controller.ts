@@ -22,7 +22,6 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { Auth } from '../../auth/infrastructure/decorators/auth.decorator.js';
-import { UserRole } from '../../user/domain/user.entity.js';
 import { CreateTournamentDto, RegisterTeamsDto, TournamentsResDto, TournamentsTeamResDto, TournamentResDto, UpdateMatchReqDto, SetPointsmatchReqDto, TournamentMatchResDto, TournamentTeamResDto } from './tournament.dto.js';
 import { Tournament } from '../domain/tournament.aggregate.js';
 import { TournamentTeam } from '../domain/tournamentTeam.entity.js';
@@ -90,8 +89,10 @@ export class TournamentController {
 //     }
 //   }
 
+
   @Post()
-  @Auth(UserRole.ADMIN)
+  //TODO: CONTROLLO ADMIN
+  @Auth()
   @ApiOperation({ summary: 'Create a tournament' })
   @ApiBody({ type: CreateTournamentDto })
   @ApiCreatedResponse({ type: TournamentsResDto })
@@ -131,7 +132,8 @@ export class TournamentController {
   }
 
   @Post(":id/team")
-  @Auth(UserRole.ADMIN)
+  //TODO: CONTROLLO ADMIN
+  @Auth()
   @ApiOperation({ summary: 'Add teams a tournament' })
   @ApiBody({ type: RegisterTeamsDto })
   @ApiCreatedResponse({ type: Array<TournamentsTeamResDto> })
@@ -147,7 +149,8 @@ export class TournamentController {
 
 
   @Post(':id/bracket')
-  @Auth(UserRole.ADMIN)
+  //TODO: CONTROLLO ADMIN
+  @Auth()
   @ApiOperation({ summary: 'Crea la struttura dell\'evento' })
   @HttpCode(HttpStatus.CREATED)
   @ApiCreatedResponse({ type: TournamentResDto })
@@ -168,7 +171,8 @@ export class TournamentController {
   }
 
   @Patch(':idTorunament/match/:idMatch')
-  @Auth(UserRole.ADMIN)
+  //TODO: CONTROLLO ADMIN
+  @Auth()
   @ApiOperation({ summary: 'Aggiorna un Match' })
   @HttpCode(HttpStatus.CREATED)
   @ApiBody({ type: UpdateMatchReqDto })
@@ -183,7 +187,8 @@ export class TournamentController {
   }
 
   @Patch(':idTorunament/match/:idMatch/points')
-  @Auth(UserRole.ADMIN)
+  //TODO: CONTROLLO ADMIN
+  @Auth()
   @ApiOperation({ summary: 'assegna il punteggio al match stabilendo il vincitore' })
   @HttpCode(HttpStatus.CREATED)
   @ApiBody({ type: SetPointsmatchReqDto })
@@ -197,7 +202,8 @@ export class TournamentController {
   }
 
   @Patch(':idTorunament/match/:idMatch/next')
-  @Auth(UserRole.ADMIN)
+  //TODO: CONTROLLO ADMIN
+  @Auth()
   @ApiOperation({ summary: 'Passa automaticamente la squadra vincente al match successivo' })
   @HttpCode(HttpStatus.CREATED)
   @ApiCreatedResponse({ type: TournamentMatchResDto })

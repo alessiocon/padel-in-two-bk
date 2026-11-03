@@ -3,7 +3,6 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Injectable, Inject } from '@nestjs/common';
 import { JwtPayload } from '../../domain/jwt-payload.interface.js';
 import { type AppEnv, ENV_CONFIG } from '../../../config/env.js';
-import { AuthUserResDto } from './../../presentation/auth.dto.js';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -21,15 +20,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: JwtPayload) : Promise<AuthUserResDto>{
-    // Il valore restituito viene iniettato automaticamente in req.user
-    return { 
-      id: payload.sub, 
-      email: payload.email,
-      firstName: payload.firstName,
-      lastName: payload.lastName,
-      username: payload.username,
-      role: payload.role,
-    };
+  async validate(payload: JwtPayload) : Promise<JwtPayload>{
+    return payload
   }
 }

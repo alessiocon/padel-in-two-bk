@@ -5,16 +5,24 @@ import {
   BookingPlayer as PrismaPlayer,
   BookingLogs as PrismaBookingLogs,
   BookingStatus as PrismaBookingStatus,
+  Court as PrismaCourt,
   BookingCancBy as PrismaBookingCancBy,
   BookingEventType as PrismaEventType,
   BookingPlayerStatus as PrismaBookingPlayerStatus,
+  BookingMatch as PrismaBookingMatch,
+  BookingMatchSet as PrismaBookingMatchSet,
+  MatchStatus as PrismaMatchStatus,
+  MatchPropose as PrismaMatchPropose,
   User as PrismaUser
 } from '@prisma/client';
 import { Booking, BookingCancBy, BookingStatus} from '../domain/booking.aggregate.js';
-import { BookingQuickResDto, BookingTeamResDto, BookingDetailResDto } from '../presentation/booking.dto.js';
+import { BookingQuickResDto, BookingTeamResDto, BookingDetailResDto, BookingMatchResDto } from '../presentation/booking.dto.js';
 import { BookingLogs, BookingEventType } from '../domain/valueObject/booking.log.value.js';
 import { BookingPlayer, BookingPlayerStatus, PlayerIdentity } from '../domain/entity/booking.player.entity.js';
 import { BookingTeam } from '../domain/entity/booking.team.entity.js';
+import { BookingMatch, MatchPropose } from '../domain/entity/booking.match.entity.js';
+import { TournamentMapper } from '../../tournament/infrastracture/prisma-tournament-mapper.js';
+import { BookingMatchScore } from '../domain/valueObject/booking.score.value.js';
 
 
 export type PrismaBookingWithRelations = PrismaBooking & {
@@ -22,6 +30,11 @@ export type PrismaBookingWithRelations = PrismaBooking & {
     players: PrismaPlayer[];
   })[];
   logs: PrismaBookingLogs[];
+  match: (PrismaBookingMatch & {
+    sets: PrismaBookingMatchSet[]
+  }) | null;
+  court: {size: number}
+  
 };
 
 export const bookingSummarySelect = Prisma.validator<Prisma.BookingSelect>()({
@@ -44,6 +57,7 @@ export const bookingQuickSummarySelect = Prisma.validator<Prisma.BookingSelect>(
   clubId: true,
   courtId: true,
   status: true,
+  createdByStaff: true,
   description: true,
   startsAt: true,
   endsAt: true,
@@ -73,7 +87,7 @@ export const bookingDetailsSelect = Prisma.validator<Prisma.BookingSelect>()({
       firstName: true, 
       lastName: true}
   },
-
+  createdByStaff: true,
   teams: {
     select: {
       id: true,
@@ -87,8 +101,19 @@ export const bookingDetailsSelect = Prisma.validator<Prisma.BookingSelect>()({
           firstName: true,
           lastName: true,
           phone: true,
-          userId: true,
-          user: true
+          playerId: true,
+          player: {
+            select: {
+              user: {
+                select: {
+                  username: true,
+                  firstName: true,
+                  lastName: true,
+                  phone: true
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -110,10 +135,10 @@ export const bookingDetailsSelect = Prisma.validator<Prisma.BookingSelect>()({
   cancReason: true,
 
   club: {
-    select: {position: true, name: true, ownerId: true}
+    select: {position: true, name: true, /*managerId: true*/}
   },
   court: {
-    select: {isIndoor: true, name: true}
+    select: {isIndoor: true, name: true, size: true}
   },
   createdAt: true,
 });
@@ -121,6 +146,28 @@ export const bookingDetailsSelect = Prisma.validator<Prisma.BookingSelect>()({
 export type PrismaBookingDetailsSelect = Prisma.BookingGetPayload<{
   select: typeof bookingDetailsSelect;
 }>;
+
+export const bookingMatchSelect = Prisma.validator<Prisma.BookingMatchSelect>()({
+  id: true,
+  bookingId: true,
+  winnerTeamNumber: true,
+  status: true,
+  format: true,
+  proposeByTeamId: true,
+  proposeNumber: true,
+  booking: {select: { teams: { select: { 
+    id:true,  
+    teamName: true, 
+    teamNumber: true, 
+    players: {select: {playerId: true, }}
+  }}}},
+  sets: true
+});
+
+export type PrismaMatchDetailsSelect = Prisma.BookingMatchGetPayload<{
+  select: typeof bookingMatchSelect;
+}>;
+
 
 export type PrismaBookingWithDetails = PrismaBooking & {
   createdBy: PrismaUser;
@@ -147,6 +194,8 @@ export abstract class BookingMapper {
     [PrismaBookingStatus.PENDING]: BookingStatus.PENDING,
     [PrismaBookingStatus.CONFIRMED]: BookingStatus.CONFIRMED,
     [PrismaBookingStatus.CANCELLED]: BookingStatus.CANCELLED,
+    [PrismaBookingStatus.IN_PROGRESS]: BookingStatus.IN_PROGRESS,
+    [PrismaBookingStatus.END]: BookingStatus.END,
   };
 
   public static readonly DOMAIN_TO_PRISMA_BOOKING_STATUS: Record<
@@ -157,6 +206,8 @@ export abstract class BookingMapper {
     [BookingStatus.PENDING]: PrismaBookingStatus.PENDING,
     [BookingStatus.CONFIRMED]: PrismaBookingStatus.CONFIRMED,
     [BookingStatus.CANCELLED]: PrismaBookingStatus.CANCELLED,
+    [BookingStatus.IN_PROGRESS]: PrismaBookingStatus.IN_PROGRESS,
+    [BookingStatus.END]: PrismaBookingStatus.END,
   };
 
     public static readonly PRISMA_TO_DOMAIN_BOOKING_CANCELEDBY: Record<
@@ -209,29 +260,36 @@ export abstract class BookingMapper {
     [BookingPlayerStatus.REMOVED]:  PrismaBookingPlayerStatus.REMOVED
   };
 
+  public static readonly PRISMA_TO_DOMAIN_MATCH_PROPOSE: Record<PrismaMatchPropose, MatchPropose> = {
+    [PrismaMatchPropose.PENDING]: MatchPropose.PENDING,
+    [PrismaMatchPropose.ACCEPTED]: MatchPropose.ACCEPTED,
+    [PrismaMatchPropose.DECLINED]: MatchPropose.DECLINED,
+  };
 
+  public static readonly DOMAIN_TO_PRISMA_MATCH_PROPOSE: Record<MatchPropose, PrismaMatchPropose> = {
+    [MatchPropose.PENDING]: PrismaMatchPropose.PENDING,
+    [MatchPropose.ACCEPTED]: PrismaMatchPropose.ACCEPTED,
+    [MatchPropose.DECLINED]: PrismaMatchPropose.DECLINED,
+  };
 
-
-
-
-
-  /**
-   * Converte un record Prisma nell'Entità di Dominio Booking
-   */
+  
   public static prismaBookingToDomain(raw: PrismaBookingWithRelations): Booking {
     const teams = raw.teams.map(team => this.mapPrismaTeamToDomain(team));
     const bookingLogs = raw.logs.map(log => this.mapPrismaBookingLogsToDomain(log));
+    const match = this.mapPrismaMatchToDomain(raw.match);
 
     return Booking.reconstitute({
       id: raw.id,
       clubId: raw.clubId,
       courtId: raw.courtId,
       createdById: raw.createdById,
+      createdByStaff: raw.createdByStaff,
       description: raw.description ?? undefined,
       startsAt: raw.startsAt,
       endsAt: raw.endsAt,
       status: this.PRISMA_TO_DOMAIN_BOOKING_STATUS[raw.status],
       teams,
+      match,
       logs: bookingLogs,
       cancBy: raw.cancBy ? this.PRISMA_TO_DOMAIN_BOOKING_CANCELEDBY[raw.cancBy] : null,
       cancAt: raw.cancAt,
@@ -239,13 +297,14 @@ export abstract class BookingMapper {
       cancReason: raw.cancReason,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
+      courtSize: raw.court.size
     });
   }
 
   private static mapPrismaTeamToDomain(prismaTeam: PrismaBookingWithRelations['teams'][number]): BookingTeam {
     const players = prismaTeam.players.map(prismaPlayer => {
-      const identity: PlayerIdentity = prismaPlayer.userId
-        ? { type: 'REGISTERED', userId: prismaPlayer.userId }
+      const identity: PlayerIdentity = prismaPlayer.playerId
+        ? { type: 'REGISTERED', playerId: prismaPlayer.playerId }
         : {
             type: 'GUEST',
             firstName: prismaPlayer.firstName ?? '',
@@ -277,6 +336,29 @@ export abstract class BookingMapper {
       eventType: this.PRISMA_TO_DOMAIN_EVENT_TYPE[prismaLog.eventType],
       message: prismaLog.message,
       createdAt: prismaLog.createdAt,
+    });
+  }
+
+  private static mapPrismaMatchToDomain(prismaMatch: PrismaBookingWithRelations['match']): BookingMatch | null {
+
+    if(!prismaMatch) return null;
+
+    let sets = prismaMatch.sets.map(set => {
+      let {id, matchId, ...properites} = set
+      return properites
+    })
+
+    return BookingMatch.reconstitute({
+      id:  prismaMatch.id,
+      bookingId: prismaMatch.bookingId, //TODO: PER RISPETTARE IL DDD QUESTO VA ELIMINATO
+      score: BookingMatchScore.create(sets, TournamentMapper.PRISMA_TO_DOMAIN_MATCH_FORMAT[prismaMatch.format]),
+      format: TournamentMapper.PRISMA_TO_DOMAIN_MATCH_FORMAT[prismaMatch.format],
+      proposeByTeamId: prismaMatch.proposeByTeamId ?? undefined,          
+      status: this.PRISMA_TO_DOMAIN_MATCH_PROPOSE[prismaMatch.status],
+      winnerTeamNumber: prismaMatch.winnerTeamNumber,
+      proposeNumber: prismaMatch.proposeNumber,
+      createdAt: prismaMatch.createdAt,
+      updatedAt: prismaMatch.updatedAt,
     });
   }
 
@@ -347,6 +429,7 @@ export abstract class BookingMapper {
       clubId: primitives.clubId,
       courtId: primitives.courtId,
       createdById: primitives.createdById,
+      createdByStaff: primitives.createdByStaff,
       description: primitives.description ?? null,
       startsAt: primitives.startsAt,
       endsAt: primitives.endsAt,
@@ -368,7 +451,7 @@ export abstract class BookingMapper {
           players: {
             create: team.players.map(player => ({
               id: player.id,
-              userId: player.userId ?? null,
+              playerId: player.playerId ?? null,
               status: player.status,
               firstName: player.firstName ?? null,
               lastName: player.lastName ?? null,
@@ -435,7 +518,7 @@ export abstract class BookingMapper {
             username: player.user?.username,
             status: this.PRISMA_TO_DOMAIN_BOOKING_PLAYER_STATUS[player.status],
             userId: player.user?.id,
-            type: player.userId ? "REGISTERED" : "GUEST",
+            type: player.playerId ? "REGISTERED" : "GUEST",
             firstName: player.firstName,
             lastName: player.lastName,
             phone: player.phone
@@ -500,6 +583,7 @@ export abstract class BookingMapper {
       clubName: record.club.name,
       courtId: record.courtId,
       courtName: record.court.name,
+      createdByStaff: record.createdByStaff,
       nPlayer,
       isCourtIndoor: record.court.isIndoor,
       status: this.PRISMA_TO_DOMAIN_BOOKING_STATUS[record.status],
@@ -514,12 +598,14 @@ export abstract class BookingMapper {
     return {
       id: record.id,
       createdBy: record.createdBy,
+      createdByStaff: record.createdByStaff,
       courtId: record.courtId,
       isCourtIndoor: record.court.isIndoor,
       courtName: record.court.name,
 
       clubId: record.clubId,
       clubName: record.club.name,
+      courtSize: record.court.size,
       position: record.club.position,
     
       status: this.PRISMA_TO_DOMAIN_BOOKING_STATUS[record.status],
@@ -534,13 +620,13 @@ export abstract class BookingMapper {
           teamNumber: team.teamNumber,
           players: team.players.map(player => ({
               id: player.id,
-              username: player.user?.username,
+              username: player.player?.user.username,
               status: this.PRISMA_TO_DOMAIN_BOOKING_PLAYER_STATUS[player.status],
-              userId: player.user?.id,
-              type: player.userId ? "REGISTERED" : "GUEST",
-              firstName: player.firstName,
-              lastName: player.lastName,
-              phone: player.phone
+              playerId: player.playerId ?? undefined,
+              type: player.playerId ? "REGISTERED" : "GUEST",
+              firstName: player.firstName ?? player.player?.user.firstName ?? null,
+              lastName: player.lastName ?? player.player?.user.lastName ?? null, 
+              phone: player.phone ?? player.player?.user.phone ?? null
           })),
         }
       }),
@@ -574,6 +660,65 @@ export abstract class BookingMapper {
   //     endsAt: primitives.endsAt.toISOString(),
   //   };
   // }
+
+  
+// export class BookingMatchResDto {
+//     id: string;       
+//     bookingId: string;   
+//     winnerTeamNumber: number;
+//     format: MatchFormat;
+
+//     proposeByTeamId?: string;
+//     proposeTeamName?: string;
+//     proposePlayerIds?: string[];
+//     pendingPlayerIds?: string[];
+
+//     team1Name: string;
+//     team2Name: string;
+
+//     proposeNumber: number;
+//     status: MatchPropose;
+//     sets: BookingSetScoreProps[];
+// }
+
+static prismaToMatchDto(record: PrismaMatchDetailsSelect): BookingMatchResDto {
+    const { booking, ...element } = record;
+    
+    let proposeTeamName: string | undefined;
+    let team1Name!: string;
+    let team2Name!: string;
+    let proposePlayerIds: string[] | undefined;
+    let pendingPlayerIds: string[] | undefined;
+
+    booking.teams.forEach(team => {
+      team.teamNumber === 1 
+        ? team1Name = team.teamName
+        : team2Name = team.teamName;
+
+      const playerIds = team.players
+        .filter(player => player.playerId !== null)
+        .map(player => player.playerId as string);
+
+      if (team.id === element.proposeByTeamId) {
+        proposeTeamName = team.teamName;
+        proposePlayerIds = playerIds;
+      } else {
+        pendingPlayerIds = playerIds;
+      }
+    });
+
+    return {
+      ...element,
+      status: this.PRISMA_TO_DOMAIN_MATCH_PROPOSE[record.status],
+      format: TournamentMapper.PRISMA_TO_DOMAIN_MATCH_FORMAT[record.format],
+      proposeByTeamId: element.proposeByTeamId ?? undefined,
+      proposeTeamName,
+      proposePlayerIds,
+      pendingPlayerIds,
+      team1Name,
+      team2Name,
+    };
+  }
 
   static toDomainStatus(status: PrismaBookingStatus): BookingStatus {
     const domainStatus = this.PRISMA_TO_DOMAIN_BOOKING_STATUS[status];

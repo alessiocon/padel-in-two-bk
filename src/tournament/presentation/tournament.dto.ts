@@ -1,6 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { ArrayMinSize, IsArray, IsBoolean, IsDateString, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPhoneNumber, isString, IsString, IsUUID, Max, MaxLength, Min, ValidateIf, ValidateNested } from "class-validator";
 import { MatchFormat, MatchStatus } from "../domain/tournamentMatch.entity.js";
+import { SetScoreProps } from "../domain/valueObject/matchScore.value.js";
 
 export class CreateTournamentDto {
   @ApiProperty({ example: 'PadelFlash' })
@@ -260,12 +261,12 @@ export class TournamentMatchResDto{
     matchOrder: number;
     status: MatchStatus;
     scheduledAt: Date | null;
-    sets?: MatchScoreResDto[] | null;
+    sets?: SetScoreProps[] | null;
 }
 
-export class MatchScoreResDto {
-    setNumber: number;
-    team1Games: number;
-    team2Games: number;
-    tieBreak?: boolean;
-}
+// export class MatchScoreResDto {
+//     setNumber: number;
+//     team1Games: number;
+//     team2Games: number;
+//     tieBreak?: boolean;
+// }

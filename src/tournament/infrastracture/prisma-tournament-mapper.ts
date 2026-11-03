@@ -9,7 +9,7 @@ import {
 } from '@prisma/client';
 import { Tournament } from './../domain/tournament.aggregate.js';
 import { TournamentTeam } from './../domain/tournamentTeam.entity.js';
-import { TournamentsResDto, TournamentTeamResDto, TournamentResDto, TournamentMatchResDto, MatchScoreResDto } from '../presentation/tournament.dto.js';
+import { TournamentsResDto, TournamentTeamResDto, TournamentResDto, TournamentMatchResDto} from '../presentation/tournament.dto.js';
 import { MatchStatus, TournamentMatch , MatchFormat} from '../domain/tournamentMatch.entity.js';
 import { MatchScore, SetScoreProps } from '../domain/valueObject/matchScore.value.js';
 
@@ -76,18 +76,26 @@ export const toTournamentSelect = Prisma.validator<Prisma.TournamentSelect>()({
       player2Phone: true,
       player1: {
         select: {
-          firstName: true,
-          lastName: true,
-          phone: true,
-          username: true,
+          user: {
+            select: {
+              firstName: true,
+              lastName: true,
+              phone: true,
+              username: true,
+            }
+          }
         },
       },
       player2: {
         select: {
-          firstName: true,
-          lastName: true,
-          phone: true,
-          username: true,
+          user: {
+            select: {
+              firstName: true,
+              lastName: true,
+              phone: true,
+              username: true,
+            }
+          }
         },
       },
     },
@@ -145,18 +153,26 @@ export const toTeamDtoSelect = Prisma.validator<Prisma.TournamentTeamSelect>()({
   player2Phone: true,
   player1: {
     select: {
-      firstName: true,
-      lastName: true,
-      phone: true,
-      username: true,
+      user: {
+        select: {
+          firstName: true,
+          lastName: true,
+          phone: true,
+          username: true,
+        }
+      }
     },
   },
   player2: {
     select: {
-      firstName: true,
-      lastName: true,
-      phone: true,
-      username: true,
+      user: {
+        select: {
+          firstName: true,
+          lastName: true,
+          phone: true,
+          username: true,
+        }
+      }
     },
   },
 });
@@ -452,7 +468,7 @@ export class TournamentMapper {
 
   public static PrismaMatchToDto(raw: PrismaTournamentMatchSelect ) : TournamentMatchResDto {
 
-  let sets : MatchScoreResDto[] = []
+  let sets : SetScoreProps[] = []
     raw.sets?.forEach(set => {
       sets.push({
         setNumber: set.setNumber,
@@ -493,17 +509,17 @@ export class TournamentMapper {
       player2Phone: raw.player2Phone,
       teamName: raw.teamName,
       player1: {
-        firstName: raw.player1.firstName,
-        lastName: raw.player1.lastName,
-        phone: raw.player1.phone,
-        username: raw.player1.username
+        firstName: raw.player1.user.firstName,
+        lastName: raw.player1.user.lastName,
+        phone: raw.player1.user.phone,
+        username: raw.player1.user.username
         
       },
       player2: !raw.player2 ? null : {
-        firstName: raw.player2.firstName,
-        lastName: raw.player2.lastName,
-        phone: raw.player2.phone,
-        username: raw.player2.username
+        firstName: raw.player2.user.firstName,
+        lastName: raw.player2.user.lastName,
+        phone: raw.player2.user.phone,
+        username: raw.player2.user.username
       }
     }
   }

@@ -1,7 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Matches, Max, MaxLength, Min } from 'class-validator';
+import { ArrayNotEmpty, IsArray, IsEmail, IsEnum, IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Matches, Max, MaxLength, Min, ValidateNested } from 'class-validator';
 import { ClubStatus} from "../domain/club.aggregate.js"
-import { CourtStatus} from "../domain/court.entity.js"
+import { CourtStatus} from "../domain/entity/court.entity.js"
+import { ClubRole } from '../domain/entity/club.member.entity.js';
+import { Type } from 'class-transformer';
 
 export class CreateClubDto {
   @ApiProperty({ example: 'Padel Milano' })
@@ -75,6 +77,28 @@ export class CreateClubDto {
     message: 'closingTime must be in HH:mm format',
   })
   closingTime: string = '23:00';
+  
+
+  @IsArray({ message: 'Members must be an array' })
+  @ArrayNotEmpty({ message: 'At least one member must be provided' })
+  @ValidateNested({ each: true }) // Dice a class-validator di validare ogni singolo oggetto dentro l'array
+  @Type(() => ClubMembersCreateReqDto)
+  members: ClubMembersCreateReqDto[]
+}
+
+export class ClubMembersCreateReqDto {
+  @IsNotEmpty({ message: 'User ID is required' })
+  @IsUUID('4', { message: 'User ID must be a valid UUID' })
+  userId: string;
+
+  @IsNotEmpty({ message: 'Club role is required' })
+  @IsEnum(ClubRole, { message: 'Invalid club role. Allowed values: OWNER, MANAGER, COACH, STAFF' })
+  role: ClubRole;
+
+  @IsArray({ message: 'Permissions must be an array' })
+  @IsString({ each: true, message: 'Each permission must be a valid string' })
+  @IsOptional()
+  permissions: string[]
 }
 
 export class UpdateClubDto {
@@ -113,8 +137,6 @@ export class ClubsResDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
 
-  ownerId: string;
-
   @ApiProperty()
   name!: string;
 
@@ -150,14 +172,22 @@ export class ClubsResDto {
   @Min(0)
   @Max(999)
   averagePrice: number;
+
+  members: ClubMemberResDto[];
 }
+
+export type ClubMemberResDto = {
+  id: string;
+  userId: string;
+  clubId: string;
+  role: ClubRole;
+  permissions: string[];
+};
+
 
 export class ClubResDto {
   @ApiProperty({ format: 'uuid' })
   id: string;
-
-  @ApiProperty({ format: 'uuid' })
-  ownerId: string;
 
   @ApiProperty()
   email: string;
@@ -189,6 +219,8 @@ export class ClubResDto {
 
   @ApiProperty({type: [ClubCourtDto], description: 'Lista dei campi appartenenti al club'})
   courts: ClubCourtDto[]
+
+  members: ClubMemberResDto[];
 }
 
 

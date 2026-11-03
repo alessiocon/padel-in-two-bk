@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import {
   CLUB_USE_CASES,
 } from './application/club-use-cases.js';
-import { CLUB_REPOSITORY } from './domain/club-IRepository.js';
+import { CLUB_IREPOSITORY } from './domain/club-IRepository.js';
 import { PrismaClubRepository } from './infrastructure/prisma-club-repository.js';
 import { ClubsController } from './presentation/clubs.controller.js';
 import { BOOKING_IREPOSITORY } from '../bookings/infrastructure/booking-IRepository.js';
@@ -14,7 +14,7 @@ import { UserModule } from '../user/user.module.js';
   providers: [
     PrismaClubRepository,
     PrismaBookingRepository,
-    { provide: CLUB_REPOSITORY, useExisting: PrismaClubRepository },
+    { provide: CLUB_IREPOSITORY, useExisting: PrismaClubRepository },
     { provide: BOOKING_IREPOSITORY, useExisting: PrismaBookingRepository },
     ...CLUB_USE_CASES
   ],

@@ -1,6 +1,6 @@
-import { IsEmail, IsEnum, IsOptional, IsPhoneNumber, IsString, MaxLength, MinLength } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { UserRole } from '../domain/user.entity.js';
+import { IsEmail, IsPhoneNumber, IsString, MaxLength, MinLength } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { ClubRole } from '../../clubs/domain/entity/club.member.entity.js';
 
 export class CreateUserDto {
   @ApiProperty({ example: "john.doe@example.com", required: true })
@@ -51,9 +51,6 @@ export class UserResponseDto{
 
   @ApiProperty({ example: "padJhon"})
   username: string;
-
-  @ApiProperty({ example: "User" })
-  role: UserRole;
 }
 
 
@@ -67,8 +64,21 @@ export class UserSearchListDto{
 export class UserSearchListResDto
 {
   id: string;
+  playerId: string;
   firstName: string;
   lastName: string;
   username: string;
   phone: string;
+}
+
+export interface ClubPermissionDto {
+  clubId: string;
+  role: ClubRole;
+  permissions: string[];
+}
+
+export interface UserPermissionsResponseDto {
+  userId: string;
+  playerId: string | null; // ID del player se esiste
+  memberships: ClubPermissionDto[];
 }

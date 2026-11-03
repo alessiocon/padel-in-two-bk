@@ -1,11 +1,16 @@
 import {
   Prisma,
+  Club as PrismaClub,
+  Court as PrismaCourt,
+  ClubMember as PrismaClubMamber,
   ClubStatus as PrismaClubStatus,
   CourtStatus as PrismaCourtStatus,
+  ClubRole as   PrismaClubRole,
 } from '@prisma/client';
 import { Club, ClubStatus,  type ClubProps } from '../domain/club.aggregate.js';
-import { Court, CourtStatus } from '../domain/court.entity.js';
+import { Court, CourtStatus } from '../domain/entity/court.entity.js';
 import { ClubResDto, ClubsResDto } from '../presentation/club.dto.js';
+import { ClubMember, ClubRole } from '../domain/entity/club.member.entity.js';
 
 // ==========================================
 // PRISMA SELECTION TYPES (PER READ MODELS)
@@ -13,7 +18,6 @@ import { ClubResDto, ClubsResDto } from '../presentation/club.dto.js';
 
 export const clubSummarySelect = Prisma.validator<Prisma.ClubSelect>()({
   id: true,
-  ownerId: true,
   name: true,
   email: true,
   status: true,
@@ -22,6 +26,7 @@ export const clubSummarySelect = Prisma.validator<Prisma.ClubSelect>()({
   closingTime: true,
   position: true,
   racketPrice: true,
+  members: true,
   courts: {
     select: {
       id: true,
@@ -35,10 +40,7 @@ export const clubDetailSelect = Prisma.validator<Prisma.ClubSelect>()({
   ...clubSummarySelect,
   timezone: true,
   courts: true,
-});
-
-export const clubStaffSelect = Prisma.validator<Prisma.ClubSelect>()({
-  ownerId: true,
+  members: true
 });
 
 export type PrismaClubSummarySelect = Prisma.ClubGetPayload<{
@@ -49,13 +51,10 @@ export type PrismaClubDetailSelect = Prisma.ClubGetPayload<{
   select: typeof clubDetailSelect;
 }>;
 
-export type PrismaClubWithCourts = Prisma.ClubGetPayload<{
-  include: { courts: true };
-}>;
-
-export type PrismaClubStaffSelect = Prisma.ClubGetPayload<{
-  select: typeof clubStaffSelect;
-}>;
+export type PrismaClubWithCourts = PrismaClub & {
+  courts: PrismaCourt[] 
+  members: PrismaClubMamber[];
+};
 
 
 export class ClubMapper {
@@ -83,6 +82,20 @@ export class ClubMapper {
     [CourtStatus.INACTIVE]: PrismaCourtStatus.INACTIVE,
   };
 
+  public static readonly DOMAIN_TO_PRISMA_CLUB_ROLE: Record<ClubRole, PrismaClubRole> = {
+    [ClubRole.OWNER]: PrismaClubRole.OWNER,
+    [ClubRole.MANAGER]: PrismaClubRole.MANAGER,
+    [ClubRole.COACH]: PrismaClubRole.COACH,
+    [ClubRole.STAFF]: PrismaClubRole.STAFF,
+  };
+
+  public static readonly PRISMA_TO_DOMAIN_CLUB_ROLE: Record<PrismaClubRole, ClubRole> = {
+    [PrismaClubRole.OWNER]: ClubRole.OWNER,
+    [PrismaClubRole.MANAGER]: ClubRole.MANAGER,
+    [PrismaClubRole.COACH]: ClubRole.COACH,
+    [PrismaClubRole.STAFF]: ClubRole.STAFF,
+  };
+
   private static toNumber(val: unknown): number {
     if (typeof val === 'number') return val;
     if (val && typeof (val as { toNumber?: () => number }).toNumber === 'function') {
@@ -94,7 +107,6 @@ export class ClubMapper {
   static toDomain(record: PrismaClubWithCourts): Club {
     const props: ClubProps = {
       id: record.id,
-      ownerId: record.ownerId,
       name: record.name,
       email: record.email,
       status: this.PRISMA_TO_DOMAIN_CLUB_STATUS[record.status],
@@ -106,11 +118,21 @@ export class ClubMapper {
       closingTime: record.closingTime,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
+      members: (record.members ?? []).map((member) => ClubMember.reconstitute({
+        id: member.id,
+        userId: member.userId,
+        clubId: member.clubId,
+        role: this.PRISMA_TO_DOMAIN_CLUB_ROLE[member.role],
+        permissions: member.permissions,
+        createdAt: member.createdAt,
+        updatedAt: member.updatedAt
+      })),
       courts: (record.courts ?? []).map((court) => Court.reconstitute({
           id: court.id,
           clubId: court.clubId,
           name: court.name,
           isIndoor: court.isIndoor,
+          size: court.size,
           price: this.toNumber(court.price),
           status: this.PRISMA_TO_DOMAIN_COURT_STATUS[court.status],
           offsetMinutes: court.offsetMinutes ?? 0
@@ -134,9 +156,6 @@ export class ClubMapper {
       closingTime: club.closingTime,
       createdAt: club.createdAt,
       updatedAt: club.updatedAt,
-      owner: {
-        connect: { id: club.ownerId },
-      },
     };
   }
 
@@ -151,6 +170,19 @@ export class ClubMapper {
       offsetMinutes: court.offsetMinutes
     };
   }
+
+  static prismaToClubMemberDomain(raw: PrismaClubMamber): ClubMember {
+    return ClubMember.reconstitute({
+      id: raw.id,      
+      userId: raw.userId,       
+      clubId: raw.clubId,       
+      role: this.PRISMA_TO_DOMAIN_CLUB_ROLE[raw.role],
+      permissions: raw.permissions, 
+      createdAt: raw.createdAt,
+      updatedAt: raw.updatedAt
+    })
+  }
+
 
   /**
    * Mappa la proiezione Prisma nel DTO di riassunto
@@ -180,6 +212,15 @@ export class ClubMapper {
       courtsOutDoor,
       averagePrice,
       racketPrice: this.toNumber(racketPrice),
+      members: props.members.map((member) => {
+        return {
+          id: member.id,
+          userId: member.userId,
+          clubId: member.clubId,
+          role: this.PRISMA_TO_DOMAIN_CLUB_ROLE[member.role],
+          permissions: member.permissions,
+        }
+      })
     };
   }
 
@@ -202,6 +243,15 @@ export class ClubMapper {
       ...summary,
       timezone: record.timezone,
       courts: mappedCourts,
+      members: record.members.map((member) => {
+        return {
+          id: member.id,
+          userId: member.userId,
+          clubId: member.clubId,
+          role: this.PRISMA_TO_DOMAIN_CLUB_ROLE[member.role],
+          permissions: member.permissions,
+        }
+      })
     };
   }
 }

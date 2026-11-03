@@ -1,3 +1,5 @@
+import { BookingSetScoreProps } from "./booking.score.value.js";
+
 export enum BookingEventType {
   CREATED = "CREATED",
   INSERT = "INSERT",
@@ -31,7 +33,7 @@ export class BookingLogs {
     bookingId: string;
     userId: string;
     actorUsername: string;
-    targetName: string;
+    targetUsername: string;
     isRegistered: boolean;
     createdAt: Date;
   }): BookingLogs {
@@ -42,7 +44,7 @@ export class BookingLogs {
       bookingId: input.bookingId,
       userId: input.userId,
       eventType: BookingEventType.INSERT,
-      message: `${input.actorUsername} ${action} ${input.targetName} (${targetType}).`,
+      message: `${input.actorUsername} ${action} ${input.targetUsername} (${targetType}).`,
       createdAt: input.createdAt,
     });
   }
@@ -123,6 +125,85 @@ export class BookingLogs {
       userId: input.userId,
       eventType: BookingEventType.STATUS_CHANGED,
       message: "il club ha accettato la prenotazione.",
+      createdAt: input.createdAt,
+    });
+  }
+
+  
+    public static startBooking(input: {
+    bookingId: string;
+    userId: string;
+    actorUsername: string;
+    createdAt: Date;
+  }): BookingLogs {
+    return this.create({
+      bookingId: input.bookingId,
+      userId: input.userId,
+      eventType: BookingEventType.STATUS_CHANGED,
+      message: "il club ha iniziato il match",
+      createdAt: input.createdAt,
+    });
+  }
+
+ public static addMatchPropose(input: {
+    bookingId: string;
+    userId: string;
+    username: string;
+    isStaff: boolean
+    createdAt: Date;
+    sets: BookingSetScoreProps[]
+  }): BookingLogs {
+
+    const setsDetails = input.sets
+      .map(
+        (set) =>
+          `Set ${set.setNumber}: ${set.team1Games} - ${set.team2Games}${set.tieBreak ? " [Tie-break]" : ""}`
+      )
+      .join("\n");
+
+      const baseMessage = input.isStaff
+      ? "il club"
+      : input.username + " ha aggiunto il risultato del match:";
+
+    const fullMessage = `${baseMessage}\n${setsDetails}`;
+    return this.create({
+      bookingId: input.bookingId,
+      userId: input.userId,
+      eventType: BookingEventType.STATUS_CHANGED,
+      message: fullMessage ,
+      createdAt: input.createdAt,
+    });
+  }
+  
+  public static removeMatchPropose(input: {
+    bookingId: string;
+    userId: string;
+    username: string;
+    isStaff: boolean
+    createdAt: Date;
+  }): BookingLogs {
+    return this.create({
+      bookingId: input.bookingId,
+      userId: input.userId,
+      eventType: BookingEventType.STATUS_CHANGED,
+      message: input.isStaff ? "il club" : input.username + " ha rimosso il risultato del match",
+      createdAt: input.createdAt,
+    });
+  }
+
+   public static acceptOrDeclienPropose(input: {
+    bookingId: string;
+    userId: string;
+    username: string;
+    isStaff: boolean
+    createdAt: Date;
+    isAccepted: boolean;
+  }): BookingLogs {
+    return this.create({
+      bookingId: input.bookingId,
+      userId: input.userId,
+      eventType: BookingEventType.STATUS_CHANGED,
+      message: `${input.isStaff ? "il club" : input.username} ha ${input.isAccepted ? "accettato" : "rifiutato"} il risultato del match`,
       createdAt: input.createdAt,
     });
   }

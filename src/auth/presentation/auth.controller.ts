@@ -5,6 +5,7 @@ import {ApiOperation, ApiBody, ApiCreatedResponse, ApiBadRequestResponse, ApiRes
 import { AuthUserResDto, LoginDto, resetPasswordReqDto } from './auth.dto.js';
 import { type AppEnv, ENV_CONFIG } from '../../config/env.js';
 import { Auth } from '../infrastructure/decorators/auth.decorator.js';
+import { JwtPayload } from '../domain/jwt-payload.interface.js';
 
 @Controller('auth')
 export class AuthController {
@@ -24,7 +25,7 @@ export class AuthController {
   @ApiCreatedResponse({ type: Boolean, description: 'Login successful' }) 
   @ApiBadRequestResponse({ description: 'Invalid login data' })
   @HttpCode(HttpStatus.OK)
-  async login(@Request() req: any, @Response({ passthrough: true }) res: any) : Promise<AuthUserResDto> {
+  async login(@Request() req: any, @Response({ passthrough: true }) res: any) : Promise<JwtPayload> {
     let response = await this.loginUseCase.execute(req.user)
 
     let isProduction = this.env.nodeEnv === "production"
@@ -37,14 +38,8 @@ export class AuthController {
       maxAge: this.env.cookieExpiresIn,
     });
 
-    return {
-      email: response.user.email,
-      firstName: response.user.firstName,
-      lastName: response.user.lastName,
-      username: response.user.username,
-      id: response.user.id,
-      role: response.user.role
-    };
+    return response.user
+    ;
     
   }
 

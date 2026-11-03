@@ -1,10 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsDateString, IsIn, IsUUID, IsOptional, MaxLength, IsString, IsNotEmpty, IsArray, ValidateNested, ArrayMinSize, ArrayMaxSize } from 'class-validator';
+import { IsDateString, IsIn, IsUUID, IsOptional, MaxLength, IsString, IsNotEmpty, IsArray, ValidateNested, ArrayMinSize, ArrayMaxSize, ArrayNotEmpty, IsBoolean, Max, Min, IsInt, IsEnum } from 'class-validator';
 import { BookingCancBy, BookingStatus } from '../domain/booking.aggregate.js';
 import { Type } from 'class-transformer';
-import { BookingTeam } from '../domain/entity/booking.team.entity.js';
-import { BookingPlayer, BookingPlayerStatus } from '../domain/entity/booking.player.entity.js';
+import { BookingPlayerStatus } from '../domain/entity/booking.player.entity.js';
 import { BookingEventType } from '../domain/valueObject/booking.log.value.js';
+import { MatchFormat } from '../../tournament/domain/tournamentMatch.entity.js';
+import { MatchPropose } from '../domain/entity/booking.match.entity.js';
+import { BookingMatchScore, BookingSetScoreProps } from '../domain/valueObject/booking.score.value.js';
 
 
 
@@ -12,13 +14,13 @@ import { BookingEventType } from '../domain/valueObject/booking.log.value.js';
 export class CreateBookingPlayerDto {
   @ApiProperty({ 
     format: 'uuid', 
-    description: 'ID utente registrato (se il giocatore ha un account)', 
+    description: 'ID player registrato (se il giocatore ha un account)', 
     required: false,
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
   @IsOptional()
   @IsUUID()
-  userId?: string;
+  playerId?: string;
 
   @ApiProperty({ 
     description: 'Nome del giocatore (obbligatorio se GUEST/senza account)', 
@@ -71,6 +73,7 @@ export class InviteBookingPlayerDto extends CreateBookingPlayerDto {
   teamId!: string;
 }
 
+
 export class RemovePlayerInBookingTeamReqDto {
   @ApiProperty({ format: 'uuid', description: 'ID della squadra da aggiornare' })
   @IsUUID()
@@ -110,7 +113,15 @@ export class CreateBookingTeamDto {
 export class CreateBookingDto {
   @ApiProperty({ 
     format: 'uuid', 
-    description: 'ID del campo da tennis/padel da prenotare',
+    description: 'ID del Club',
+    example: 'd3b07384-d113-4ec7-a49d-263267d36371'
+  })
+  @IsUUID()
+  clubId!: string;
+
+  @ApiProperty({ 
+    format: 'uuid', 
+    description: 'ID del campo da padel da prenotare',
     example: 'd3b07384-d113-4ec7-a49d-263267d36371'
   })
   @IsUUID()
@@ -166,11 +177,84 @@ export class UpdateBookingPlayerDto {
 
 
 
-export class SearchBookingQueryDto {
+export class SearchBookingQuery {
    from?: string;
    to?: string;
    clubId?: string;
-   userId?: string;
+   createdById?: string;
+   playerId?: string;
+   member?: string; 
+   status?: BookingStatus
+}
+
+
+export class MatchProposeDto {
+  @ApiProperty({ description: 'Numero del set', example: 1 })
+  @IsInt({ message: 'Il numero del set dev\' essere un numero' })
+  @Min(0, { message: 'Il numero del set dev\' essere un numero positivo' })
+  setNumber: number;
+
+  @ApiProperty({ description: 'Game vinti dalla squadra 1', example: 6 })
+  @IsInt({ message: 'Team 1 games must be an integer' })
+  @Min(0, { message: 'Team 1 games cannot be negative' })
+  @Max(7, { message: 'Team 1 games cannot exceed 7' })
+  team1Games: number;
+
+  @ApiProperty({ description: 'Game vinti dalla squadra 2', example: 4 })
+  @IsInt({ message: 'Team 2 games must be an integer' })
+  @Min(0, { message: 'Team 2 games cannot be negative' })
+  @Max(7, { message: 'Team 2 games cannot exceed 7' })
+  team2Games: number;
+
+  @ApiProperty({ description: 'Indica se il set è terminato al tie-break', example: false })
+  @IsBoolean({ message: 'Tie break must be a boolean value' })
+  tieBreak: boolean;
+}
+
+
+export class BookingResultProposeDto {
+  @ApiProperty({ 
+    type: () => [MatchProposeDto], 
+    description: 'Lista dei risultati dei set/match proposti' 
+  })
+  @IsArray({ message: 'Matches must be an array' })
+  @ArrayNotEmpty({ message: 'At least one match/set result must be provided' })
+  @ValidateNested({ each: true })
+  @Type(() => MatchProposeDto)
+  matches: MatchProposeDto[];
+
+  @ApiProperty({ 
+    enum: MatchFormat, 
+    description: 'Formato della partita (es. SINGLE_SET, BEST_OF_THREE)' 
+  })
+  @IsNotEmpty({ message: 'Match format is required' })
+  @IsEnum(MatchFormat, { message: 'Invalid match format specified' })
+  format: MatchFormat;
+
+  @ApiProperty({ description: 'Indica se l\'azione è eseguita da un membro dello staff', example: false })
+  @IsNotEmpty({ message: 'isStaff field is required' })
+  @IsBoolean({ message: 'isStaff must be a boolean value' })
+  isStaff: boolean;
+}
+
+
+export class BookingIsAcceptedMatchProposeDto {
+  @ApiProperty({ description: 'Indica se la proposta di risultato viene accettata (true) o rifiutata (false)', example: true })
+  @IsNotEmpty({ message: 'isAccepted field is required' })
+  @IsBoolean({ message: 'isAccepted must be a boolean value' })
+  isAccepted: boolean;
+
+  @ApiProperty({ description: 'Indica se l\'azione è eseguita da un membro dello staff', example: false })
+  @IsNotEmpty({ message: 'isStaff field is required' })
+  @IsBoolean({ message: 'isStaff must be a boolean value' })
+  isStaff: boolean;
+}
+
+export class BookingRemoveMatchProposeDto {
+  @ApiProperty({ description: 'Indica se l\'azione è eseguita da un membro dello staff', example: true })
+  @IsNotEmpty({ message: 'isStaff field is required' })
+  @IsBoolean({ message: 'isStaff must be a boolean value' })
+  isStaff: boolean;
 }
 
 
@@ -197,6 +281,7 @@ export class BookingQuickResDto{
     courtId: string;
     courtName: string;
     isCourtIndoor: boolean;
+    createdByStaff: boolean;
 
     nPlayer: number;
 
@@ -214,6 +299,7 @@ export class BookingDetailResDto {
 
     courtId: string;
     courtName: string;
+    courtSize: number;
     isCourtIndoor: boolean;
 
     position: string;
@@ -229,6 +315,7 @@ export class BookingDetailResDto {
         firstName: string,
         lastName: string,
     } | null;
+    createdByStaff: boolean;
     teams: BookingTeamResDto[];
     logs: BookingLogResDto[];
 
@@ -239,6 +326,7 @@ export class BookingDetailResDto {
 
     createdAt: Date;
 }
+
 export class BookingLogResDto{
   eventType: BookingEventType;
   message: string;
@@ -254,12 +342,32 @@ export class BookingTeamResDto{
 export class BookingPlayerResDto{
   id: string;
   username?: string;
-  userId?: string;
+  playerId?: string;
   status: BookingPlayerStatus;
   type: 'GUEST' | 'REGISTERED';
   firstName: string | null;
   lastName: string | null;
   phone: string | null;
+}
+
+
+export class BookingMatchResDto {
+    id: string;       
+    bookingId: string;   
+    winnerTeamNumber: number;
+    format: MatchFormat;
+
+    proposeByTeamId?: string;
+    proposeTeamName?: string;
+    proposePlayerIds?: string[];
+    pendingPlayerIds?: string[];
+
+    team1Name: string;
+    team2Name: string;
+
+    proposeNumber: number;
+    status: MatchPropose;
+    sets: BookingSetScoreProps[];
 }
 
 

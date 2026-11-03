@@ -1,5 +1,5 @@
 import { Controller, Request, Post, Body, Get, Param, HttpCode, HttpStatus,InternalServerErrorException, BadRequestException,NotFoundException, UseGuards, Query} from '@nestjs/common';
-import { CreateUserUseCase, GetUserByIdUseCase } from '../application/user.use-cases.js';
+import { GetUserByIdUseCase } from '../application/user.use-cases.js';
 import { CreateUserDto, UserSearchListResDto, UserResponseDto, UserSearchListDto } from './user.dto.js';
 import {
   ApiCreatedResponse,
@@ -8,10 +8,11 @@ import {
   ApiOperation,
   ApiBadRequestResponse,
 } from '@nestjs/swagger';
-import { User, UserRole } from '../domain/user.entity.js';
+import { User} from '../domain/user.entity.js';
 import { UserNotFoundError } from '../domain/user-errors.js';
 import { Auth } from './../../auth/infrastructure/decorators/auth.decorator.js';
 import { usersListUseCase, usersListUseCaseProps } from '../application/user.list.use-cases.js';
+import { CreateUserUseCase } from '../application/create.user.use-case.js';
 
 @Controller('users')
 export class UserController {
@@ -34,7 +35,7 @@ export class UserController {
   {
     try {
       let input = {
-        userSearchedId: req.user.id,
+        userSearchedId: req.user.sub,
         username
       }
 

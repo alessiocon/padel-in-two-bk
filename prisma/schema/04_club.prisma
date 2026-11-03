@@ -1,0 +1,90 @@
+enum ClubStatus {
+  ACTIVE   @map("active")
+  INACTIVE @map("inactive")
+
+  @@map("club_status")
+}
+
+enum CourtStatus {
+  AVAILABLE   @map("available")
+  RESERVED    @map("reserved")
+  MAINTENANCE @map("maintenance")
+  INACTIVE    @map("inactive")
+
+  @@map("court_status")
+}
+
+
+model Club {
+  id                  String       @id @default(uuid()) @db.Uuid
+  name                String       @db.VarChar(160)
+  email               String       @unique @db.VarChar(320)
+  status              ClubStatus   @default(ACTIVE)
+  timezone            String       @default("Europe/Rome") @db.VarChar(50)
+  position            String       @default("") @db.VarChar(150)
+  racketPrice         Decimal      @default(0.00) @map("racket_price") @db.Decimal(10, 2)
+  slotDurationMinutes Int          @default(90) @map("slot_duration_minutes")
+  openingTime         String       @default("08:00") @map("opening_time") @db.VarChar(5)
+  closingTime         String       @default("23:00") @map("closing_time") @db.VarChar(5)
+  createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relazioni
+  members             ClubMember[] @relation("MembersClub")
+  courts   Court[]
+  bookings Booking[]
+
+  @@map("clubs")
+}
+
+model Court {
+  id            String        @id @default(uuid()) @db.Uuid
+  clubId        String        @map("club_id") @db.Uuid
+  name          String        @db.VarChar(120)
+  price         Decimal       @default(0.00) @map("slot_price") @db.Decimal(10, 2)
+  status        CourtStatus   @default(AVAILABLE)
+  isIndoor      Boolean       @default(false) @map("is_indoor")
+  offsetMinutes Int           @default(0) @map("offset_minutes")
+  size          Int           @default(4) @map("size")
+
+  club          Club          @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  bookings      Booking[]
+  matches       TournamentMatch[]
+
+  @@unique([clubId, name])
+  @@unique([id, clubId])
+  @@index([clubId, status])
+  @@map("courts")
+}
+
+model ClubMember {
+  id        String       @id @default(uuid()) @db.Uuid
+  userId    String       @map("user_id") @db.Uuid
+  clubId    String       @map("club_id") @db.Uuid
+  
+  // Ruolo che l'utente ha in questo specifico club (MANAGER, COACH, STAFF, ecc.)
+  role      ClubRole     @default(STAFF) @map("role")
+  
+  // Permessi granulari opzionali (es. ["EDIT_SETTINGS", "MANAGE_COURTS"])
+  permissions String[]   @default([])
+
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relazioni
+  user      User         @relation("MembershipsClub", fields: [userId], references: [id], onDelete: Cascade)
+  club      Club         @relation("MembersClub", fields: [clubId], references: [id], onDelete: Cascade)
+
+  // Un utente può avere un solo ruolo/membership per singolo club
+  @@unique([userId, clubId])
+  @@index([userId])
+  @@index([clubId])
+  @@map("club_members")
+}
+
+enum ClubRole {
+  OWNER
+  MANAGER
+  COACH
+  STAFF
+}

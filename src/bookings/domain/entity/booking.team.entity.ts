@@ -1,9 +1,8 @@
 import { BadRequestException } from "@nestjs/common";
-import { BookingLogs, BookingEventType } from "../valueObject/booking.log.value.js";
-import { BookingPlayer } from "./booking.player.entity.js";
+import { BookingPlayer, BookingPlayerStatus } from "./booking.player.entity.js";
 
 export type BookingTeamPlayerInput =
-  | { type: 'REGISTERED'; userId: string }
+  | { type: 'REGISTERED'; playerId: string}
   | { type: 'GUEST'; firstName: string; lastName: string; phone?: string };
 
 export type BookingTeamProps = {
@@ -43,11 +42,11 @@ export class BookingTeam {
   public get players(): ReadonlyArray<BookingPlayer> { return this.props.players; }
 
   public hasPlayer(userId: string): boolean {
-    return this.props.players.some((player) => player.userId === userId);
+    return this.props.players.some((player) => player.playerId === userId);
   }
 
-  public isAcceptedByUser(userId: string, isAccepted: boolean): BookingTeam {
-    const player = this.props.players.find((candidate) => candidate.userId === userId);
+  public isAcceptedByPlayer(playerId: string, isAccepted: boolean): BookingTeam {
+    const player = this.props.players.find((candidate) => candidate.playerId === playerId);
     if (!player) {
       throw new BadRequestException("L'utente non fa parte della squadra.");
     }
@@ -69,20 +68,20 @@ export class BookingTeam {
 
 
 
-  public addPlayer(input: BookingTeamPlayerInput, bookingCreatorId: string): BookingTeam {
+  public addPlayer(input: BookingTeamPlayerInput, status: BookingPlayerStatus): BookingTeam {
     if (this.props.players.length >= 2) {
       throw new BadRequestException("La squadra ha già raggiunto il numero massimo di giocatori.");
     }
 
-    if (input.type === 'REGISTERED' && this.hasPlayer(input.userId)) {
+    if (input.type === 'REGISTERED' && this.hasPlayer(input.playerId)) {
       throw new BadRequestException("L'utente fa già parte della squadra.");
     }
 
     const player = input.type === 'REGISTERED'
       ? BookingPlayer.createRegisteredInvitation({
           teamId: this.id,
-          userId: input.userId,
-          bookingCreatorId,
+          status,
+          playerId: input.playerId,
         })
       : BookingPlayer.createGuest({
           teamId: this.id,

@@ -1,7 +1,8 @@
 import { ClubResDto, ClubsResDto } from '../presentation/club.dto.js';
 import type { Club } from './club.aggregate.js';
+import { ClubMember } from './entity/club.member.entity.js';
 
-export const CLUB_REPOSITORY = Symbol('CLUB_REPOSITORY');
+export const CLUB_IREPOSITORY = Symbol('CLUB_REPOSITORY');
 
 export interface IClubRepository {
   findAll(): Promise<Club[]>;
@@ -12,5 +13,5 @@ export interface IClubRepository {
 
   RO_findAll(): Promise<ClubsResDto[]>;
   RO_findById(id: string): Promise<ClubResDto | null>;
-  RO_ClubStaff(idClub: string): Promise<string[]>;
+  RO_ClubStaff(idClub: string): Promise<ClubMember[]>;
 }

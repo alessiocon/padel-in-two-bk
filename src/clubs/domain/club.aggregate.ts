@@ -1,11 +1,11 @@
 import { DateTime } from 'luxon';
-import { Court, CourtProps} from './court.entity.js';
+import { Court, CourtProps} from './entity/court.entity.js';
+import { ClubMember, ClubRole } from './entity/club.member.entity.js';
 
 export enum ClubStatus { ACTIVE = "ACTIVE", INACTIVE = "INACTIVE" }
 
 export type ClubProps = {
   id: string;
-  ownerId: string;
   name: string;
   email: string;
   status: ClubStatus;
@@ -17,13 +17,14 @@ export type ClubProps = {
   closingTime: string;          
   createdAt: Date;
   updatedAt: Date;
-  courts: Court[];              
+  courts: Court[];
+  members: ClubMember[];
 };
 
 export class Club {
   private constructor(private props: ClubProps) {
     Club.validateName(props.name);
-    Club.validateOwnerId(props.ownerId);
+    Club.validateMembers(props.members);
     Club.validateClubTime(props.openingTime, props.closingTime, props.slotDurationMinutes);
     Club.validateRacketPrice(props.racketPrice);
     if (props.courts.length <= 0) {
@@ -32,20 +33,22 @@ export class Club {
   }
 
   static create(
-    input: Omit<ClubProps, 'id' | 'status' | 'updatedAt' | 'courts'>,
+    input: Omit<ClubProps, 'id' | 'status' | 'updatedAt' | 'courts' | 'members'>,
+    members: {userId: string, role: ClubRole, permissions: string[]}[],
     slotPrice: number,
     courtsIndoor: number = 1,
     courtsOutdoor: number = 0,
+    size: number = 4,
     clubId = crypto.randomUUID(),
   ): Club {
-    const indoorCourts = Club.createCourtsEntities(clubId, courtsIndoor, slotPrice, true);
-    const outdoorCourts = Club.createCourtsEntities(clubId,courtsOutdoor, slotPrice, false, indoorCourts.length);
+    const indoorCourts = Club.createCourtsEntities(clubId, courtsIndoor, slotPrice,  size, true);
+    const outdoorCourts = Club.createCourtsEntities(clubId,courtsOutdoor, slotPrice, size,  false, indoorCourts.length);
+    const membersEntites = Club.createMemberEntities(clubId, input.createdAt, members )
     
     const allCourts = [...indoorCourts, ...outdoorCourts];
 
     return new Club({
       id: clubId,
-      ownerId: input.ownerId,
       name: input.name.trim(),
       email: Club.normalizeEmail(input.email),
       status: ClubStatus.ACTIVE,
@@ -58,6 +61,7 @@ export class Club {
       createdAt: input.createdAt,
       updatedAt: input.createdAt,
       courts: allCourts,
+      members: membersEntites,
     });
   }
 
@@ -77,13 +81,13 @@ export class Club {
   }
 
   get id(): string { return this.props.id; }
-  get ownerId(): string { return this.props.ownerId; }
   get name(): string { return this.props.name; }
   get email(): string { return this.props.email; }
   get status(): ClubStatus { return this.props.status; }
   get createdAt(): Date { return new Date(this.props.createdAt); }
   get updatedAt(): Date { return new Date(this.props.updatedAt); }
   get courts(): Court[] { return [...this.props.courts]; }
+  get members(): ClubMember[] { return [...this.props.members]; }
   get slotDurationMinutes(): number { return this.props.slotDurationMinutes; }
   get openingTime(): string { return this.props.openingTime; }
   get closingTime(): string { return this.props.closingTime; }
@@ -120,6 +124,31 @@ export class Club {
     this.touch();
   }
 
+  addMember(member: ClubMember): void {
+    const exists = this.props.members.some(m => m.userId === member.userId);
+    if (exists) {
+      throw new Error('User is already a member of this club');
+    }
+    this.props.members.push(member);
+    this.touch();
+  }
+  
+
+  removeMember(userId: string): void {
+    const memberIndex = this.props.members.findIndex(m => m.userId === userId);
+    if (memberIndex === -1) {
+      throw new Error('Member not found in this club');
+    }
+    
+    // Evita di rimuovere l'ultimo owner rimasto
+    const ownersCount = this.props.members.filter(m => m.role === 'OWNER').length;
+    if (this.props.members[memberIndex].role === 'OWNER' && ownersCount <= 1) {
+      throw new Error('Cannot remove the last club owner');
+    }
+
+    this.props.members.splice(memberIndex, 1);
+    this.touch();
+  }
 
   toPrimitives(): Omit<ClubProps, 'courts'> & { courts: CourtProps[] } {
     return {
@@ -165,6 +194,7 @@ export class Club {
     clubId: string,
     count: number,
     price: number,
+    size: number,
     isIndoor: boolean,
     startIndex: number = 0,
   ): Court[] {
@@ -176,10 +206,25 @@ export class Club {
         name: `campo ${index + startIndex + 1}`,
         isIndoor,
         price,
+        size,
         offsetMinutes: 0,
       });
     });
   }
+
+  private static createMemberEntities(clubId: string, time: Date,  members: {userId: string, role: ClubRole, permissions: string[]}[]): ClubMember[] {
+    if (!members) return [];
+
+    return members.map(member => {
+      return ClubMember.create({
+        clubId,
+        userId: member.userId,
+        role: member.role,
+        permissions: member.permissions,
+      }, time);
+    })
+  }
+
 
   private touch(): void {
     this.props.updatedAt = new Date();
@@ -190,8 +235,14 @@ export class Club {
     if (name.trim().length > 160) throw new Error('Club name cannot exceed 160 characters');
   }
 
-  private static validateOwnerId(ownerId: string): void {
-    if (!ownerId || ownerId.trim().length === 0) throw new Error('Owner ID is required');
+  private static validateMembers(members: ClubMember[]): void {
+    if (!members || members.length === 0) {
+      throw new Error('A club must have at least one member');
+    }
+    const hasOwner = members.some(m => m.role === 'OWNER' || m.role === 'MANAGER');
+    if (!hasOwner) {
+      throw new Error('A club must have at least one owner or manager');
+    }
   }
 
   private static normalizeEmail(email: string): string {

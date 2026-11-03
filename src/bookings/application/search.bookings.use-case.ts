@@ -1,30 +1,16 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { BOOKING_IREPOSITORY, type IBookingRepository } from '../infrastructure/booking-IRepository.js';
-import { BookingQuickResDto } from '../presentation/booking.dto.js';
-import { CLOCK_SERVICE, type IClockService } from '../../service/interface/IClockService.js';
-import { BookingStatus } from '../domain/booking.aggregate.js';
+import { BookingQuickResDto, SearchBookingQuery } from '../presentation/booking.dto.js';
 
-export type SearchBookingsInput = {
-  clubId?: string;
-  userId?: string;
-  status?: BookingStatus;
-  from?: string;
-  to?: string;
-};
 @Injectable()
 export class SearchBookingsUseCase {
   constructor(
-    @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
     @Inject(BOOKING_IREPOSITORY) private readonly bookingRepository: IBookingRepository,
   ) {}
 
-  async execute(input: SearchBookingsInput): Promise<BookingQuickResDto[]> {
-    const now = this.clock.now();
-    const defaultDate = !input.from && !input.to
-      ? now.toISOString().slice(0, 10)
-      : undefined;
-    const fromValue = input.from ?? input.to ?? defaultDate;
-    const toValue = input.to ?? input.from ?? defaultDate;
+  async execute(input: SearchBookingQuery): Promise<BookingQuickResDto[]> {
+    const fromValue = input.from ?? input.to;
+    const toValue = input.to ?? input.from;
     const from = this.parseDate(fromValue, false);
     const toDate = this.parseDate(toValue, false);
     const to = this.parseDate(toValue, true);
@@ -33,12 +19,16 @@ export class SearchBookingsUseCase {
       throw new BadRequestException('La data iniziale non può essere successiva alla data finale.');
     }
 
-    if (input.from && input.to && from && toDate && toDate > this.addCalendarMonth(from)) {
-      throw new BadRequestException('L’intervallo di ricerca non può superare un mese.');
-    }
-
-    return this.bookingRepository.RO_SearchBookings(input.clubId, from, to, input.userId, input.status);
-  }
+ 
+    return this.bookingRepository.RO_SearchBookings({
+      clubId: input.clubId, 
+      from: from, 
+      to: to, 
+      createdById: input.createdById,
+      playerId: input.playerId, 
+      status: input.status
+    });
+  } 
 
 
   private parseDate(value: string | undefined, endOfDay: boolean): Date | undefined {
