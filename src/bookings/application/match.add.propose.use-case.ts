@@ -42,7 +42,7 @@ export class MatchAddProposeUseCase {
         const start = DateTime.fromJSDate(booking.startsAt);
         const extendedDeadline = start.plus({ minutes: 15 });
   
-        if (now > extendedDeadline) {
+        if (now < extendedDeadline) {
           const diff = now.diff(extendedDeadline, ['days', 'hours', 'minutes', 'seconds']).toObject();
 
           const days = Math.floor(diff.days || 0);
