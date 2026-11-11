@@ -4,8 +4,9 @@ import { CLOCK_SERVICE, type IClockService } from "../../service/interface/ICloc
 import { BOOKING_IREPOSITORY, type IBookingRepository } from "../infrastructure/booking-IRepository.js";
 import { BookingMatchResDto, MatchProposeDto } from "../presentation/booking.dto.js";
 import { MatchFormat } from "../../tournament/domain/tournamentMatch.entity.js";
-import { CLUB_IREPOSITORY, type IClubRepository } from "../../clubs/domain/club-IRepository.js";
+import { CLUB_IREPOSITORY, type IClubRepository } from "../../clubs/infrastructure/club-IRepository.js";
 import { DateTime } from "luxon";
+import { SaveBookingMatchService } from './save-booking-match.service.js';
 
 
 export type MatchAddProposeUseCaseInput = {
@@ -25,7 +26,8 @@ export class MatchAddProposeUseCase {
     @Inject(BOOKING_IREPOSITORY) private readonly bookingRepository: IBookingRepository,
     @Inject(CLUB_IREPOSITORY) private readonly clubRepository: IClubRepository,
     @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
-    private readonly getClubStaffUseCase : GetClubStaffUseCase
+    private readonly getClubStaffUseCase : GetClubStaffUseCase,
+    private readonly saveBookingMatch: SaveBookingMatchService,
   ) {}
 
     async execute(input: MatchAddProposeUseCaseInput): Promise<BookingMatchResDto> {
@@ -40,7 +42,7 @@ export class MatchAddProposeUseCase {
         const start = DateTime.fromJSDate(booking.startsAt);
         const extendedDeadline = start.plus({ minutes: 15 });
   
-        if (now < extendedDeadline) {
+        if (now > extendedDeadline) {
           const diff = now.diff(extendedDeadline, ['days', 'hours', 'minutes', 'seconds']).toObject();
 
           const days = Math.floor(diff.days || 0);
@@ -67,7 +69,6 @@ export class MatchAddProposeUseCase {
           time
         })
 
-        await this.bookingRepository.update(updatedBooking);
-        return await this.bookingRepository.saveMatch(updatedBooking);
+        return await this.saveBookingMatch.execute(booking, updatedBooking);
     }
 }

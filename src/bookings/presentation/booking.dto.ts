@@ -7,6 +7,7 @@ import { BookingEventType } from '../domain/valueObject/booking.log.value.js';
 import { MatchFormat } from '../../tournament/domain/tournamentMatch.entity.js';
 import { MatchPropose } from '../domain/entity/booking.match.entity.js';
 import { BookingMatchScore, BookingSetScoreProps } from '../domain/valueObject/booking.score.value.js';
+import { PromotionType } from '../../promotions/domain/promotion-type.js';
 
 
 
@@ -289,7 +290,11 @@ export class BookingQuickResDto{
     description: string;
     startsAt: string;
     endsAt: string;
+    price: number;
     
+    // @ApiProperty({ enum: PromotionType, isArray: true })
+    eligiblePromotions!: PromotionType[];
+
     createdAt: Date;
 }
 export class BookingDetailResDto {
@@ -307,6 +312,7 @@ export class BookingDetailResDto {
     description: string;
     startsAt: string;
     endsAt: string;
+    price: number;
     isIndoor: boolean;
 
     createdBy: {
@@ -323,6 +329,9 @@ export class BookingDetailResDto {
     cancAt: Date | null;
     cancPostConfirm: boolean | null;
     cancReason: string | null;
+
+    // @ApiProperty({ enum: PromotionType, isArray: true })
+    eligiblePromotions!: PromotionType[];
 
     createdAt: Date;
 }

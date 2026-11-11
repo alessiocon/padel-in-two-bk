@@ -6,11 +6,15 @@ import {
   ClubStatus as PrismaClubStatus,
   CourtStatus as PrismaCourtStatus,
   ClubRole as   PrismaClubRole,
+  PromotionType as PrismaPromotionType,
 } from '@prisma/client';
 import { Club, ClubStatus,  type ClubProps } from '../domain/club.aggregate.js';
 import { Court, CourtStatus } from '../domain/entity/court.entity.js';
 import { ClubResDto, ClubsResDto } from '../presentation/club.dto.js';
 import { ClubMember, ClubRole } from '../domain/entity/club.member.entity.js';
+import { PricingRulePriceMode, PricingRuleScope } from '../../club-pricing/domain/pricing-rule.entity.js';
+import { PrismaPricingRuleMapper } from '../../club-pricing/infrastructure/prisma-pricing-rule-mapper.js';
+import { PromotionType } from '../../promotions/domain/promotion-type.js';
 
 // ==========================================
 // PRISMA SELECTION TYPES (PER READ MODELS)
@@ -19,6 +23,7 @@ import { ClubMember, ClubRole } from '../domain/entity/club.member.entity.js';
 export const clubSummarySelect = Prisma.validator<Prisma.ClubSelect>()({
   id: true,
   name: true,
+  promotions: true,
   email: true,
   status: true,
   slotDurationMinutes: true,
@@ -40,7 +45,31 @@ export const clubDetailSelect = Prisma.validator<Prisma.ClubSelect>()({
   ...clubSummarySelect,
   timezone: true,
   courts: true,
-  members: true
+  members: true,
+  pricingRules: {
+    select: {
+      id: true,
+      clubId: true,
+      name: true,
+      scope: true,
+      courtLinks: {
+        select: {
+          courtId: true,
+        },
+      },
+      weekdays: true,
+      startTime: true,
+      endTime: true,
+      validFrom: true,
+      validUntil: true,
+      priceMode: true,
+      value: true,
+      priority: true,
+      isActive: true,
+      createdAt: true,
+      updatedAt: true,
+    }
+  }
 });
 
 export type PrismaClubSummarySelect = Prisma.ClubGetPayload<{
@@ -58,6 +87,16 @@ export type PrismaClubWithCourts = PrismaClub & {
 
 
 export class ClubMapper {
+  public static readonly PRISMA_TO_DOMAIN_PROMOTION_TYPE: Record<PrismaPromotionType, PromotionType> = {
+    [PrismaPromotionType.ACCUMULATE_POINTS]: PromotionType.ACCUMULATE_POINTS,
+    [PrismaPromotionType.RACKET_FREE]: PromotionType.RACKET_FREE,
+  };
+
+  public static readonly DOMAIN_TO_PRISMA_PROMOTION_TYPE: Record<PromotionType, PrismaPromotionType> = {
+    [PromotionType.ACCUMULATE_POINTS]: PrismaPromotionType.ACCUMULATE_POINTS,
+    [PromotionType.RACKET_FREE]: PrismaPromotionType.RACKET_FREE,
+  };
+
   public static readonly PRISMA_TO_DOMAIN_CLUB_STATUS: Record<PrismaClubStatus, ClubStatus> = {
     [PrismaClubStatus.ACTIVE]: ClubStatus.ACTIVE,
     [PrismaClubStatus.INACTIVE]: ClubStatus.INACTIVE,
@@ -108,6 +147,7 @@ export class ClubMapper {
     const props: ClubProps = {
       id: record.id,
       name: record.name,
+      promotions: record.promotions.map(promotion => this.PRISMA_TO_DOMAIN_PROMOTION_TYPE[promotion]),
       email: record.email,
       status: this.PRISMA_TO_DOMAIN_CLUB_STATUS[record.status],
       position: record.position,
@@ -146,6 +186,7 @@ export class ClubMapper {
     return {
       id: club.id,
       name: club.name,
+      promotions: club.promotions.map(promotion => this.DOMAIN_TO_PRISMA_PROMOTION_TYPE[promotion]),
       email: club.email,
       status: this.DOMAIN_TO_PRISMA_CLUB_STATUS[club.status],
       position: club.position,
@@ -207,6 +248,7 @@ export class ClubMapper {
 
     return {
       ...props,
+      promotions: record.promotions.map(promotion => this.PRISMA_TO_DOMAIN_PROMOTION_TYPE[promotion]),
       status: this.PRISMA_TO_DOMAIN_CLUB_STATUS[status],
       courtsInDoor,
       courtsOutDoor,
@@ -251,7 +293,28 @@ export class ClubMapper {
           role: this.PRISMA_TO_DOMAIN_CLUB_ROLE[member.role],
           permissions: member.permissions,
         }
-      })
+      }),
+
+      priceRoles: record.pricingRules?.map((rule) => {
+        return {
+          id: rule.id,
+          clubId: rule.clubId,
+          name: rule.name,
+          scope: PrismaPricingRuleMapper.PRISMA_TO_DOMAIN_SCOPE[rule.scope],
+          courtIds: rule.courtLinks.map(link => link.courtId),
+          weekdays: rule.weekdays,
+          startTime: rule.startTime,
+          endTime: rule.endTime,
+          validFrom: rule.validFrom,
+          validUntil: rule.validUntil,
+          priceMode: PrismaPricingRuleMapper.PRISMA_TO_DOMAIN_PRICE_MODE[rule.priceMode],
+          value: Number(rule.value),
+          priority: rule.priority,
+          isActive: rule.isActive,
+          createdAt: rule.createdAt,
+          updatedAt: rule.updatedAt
+        }
+      }) ?? []
     };
   }
 }

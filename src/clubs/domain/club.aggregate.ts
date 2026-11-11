@@ -1,6 +1,9 @@
 import { DateTime } from 'luxon';
 import { Court, CourtProps} from './entity/court.entity.js';
 import { ClubMember, ClubRole } from './entity/club.member.entity.js';
+import { PricingRule } from '../../club-pricing/domain/pricing-rule.entity.js';
+import { Money } from '../../club-pricing/domain/money.value-object.js';
+import { PromotionType } from '../../promotions/domain/promotion-type.js';
 
 export enum ClubStatus { ACTIVE = "ACTIVE", INACTIVE = "INACTIVE" }
 
@@ -19,6 +22,7 @@ export type ClubProps = {
   updatedAt: Date;
   courts: Court[];
   members: ClubMember[];
+  promotions?: readonly PromotionType[];
 };
 
 export class Club {
@@ -62,6 +66,7 @@ export class Club {
       updatedAt: input.createdAt,
       courts: allCourts,
       members: membersEntites,
+      promotions: input.promotions ?? [],
     });
   }
 
@@ -94,6 +99,53 @@ export class Club {
   get position(): string { return this.props.position; }
   get timezone(): string { return this.props.timezone; }
   get racketPrice(): number { return this.props.racketPrice; }
+  get promotions(): readonly PromotionType[] { return [...(this.props.promotions ?? [])]; }
+
+  eligiblePromotions(createdByStaff: boolean): readonly PromotionType[] {
+    return createdByStaff ? [] : this.promotions;
+  }
+
+  calculateBookingPrice(input: {
+    courtId: string;
+    startsAt: Date;
+    slots: number;
+    rules: readonly PricingRule[];
+  }): number {
+    if (!Number.isInteger(input.slots) || input.slots < 1) {
+      throw new Error('Booking slots must be a positive integer');
+    }
+
+    const court = this.props.courts.find(candidate => candidate.id === input.courtId);
+    if (!court) {
+      throw new Error(`Court with ID ${input.courtId} not found in this club.`);
+    }
+
+    let totalPrice = Money.zero();
+    for (let slotIndex = 0; slotIndex < input.slots; slotIndex++) {
+      const slotStartsAt = new Date(
+        input.startsAt.getTime() + slotIndex * this.props.slotDurationMinutes * 60_000,
+      );
+      const applicableRule = input.rules
+        .filter(rule => rule.appliesToSlot({
+          courtId: input.courtId,
+          startsAt: slotStartsAt,
+          timezone: this.props.timezone,
+        }))
+        .sort((first, second) =>
+          second.priority - first.priority ||
+          first.name.localeCompare(second.name) ||
+          first.id.localeCompare(second.id),
+        )[0];
+
+      totalPrice = totalPrice.plus(
+        applicableRule
+          ? applicableRule.calculateSlotPrice(court.price)
+          : Money.fromDecimal(court.price),
+      );
+    }
+
+    return totalPrice.toNumberRoundedToCents();
+  }
 
   updateTimeClubSchedule(openingTime: string, closingTime: string, slotDurationMinutes: number): void {
     Club.validateClubTime(openingTime, closingTime, slotDurationMinutes);

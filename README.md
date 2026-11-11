@@ -72,6 +72,52 @@ The real database integration test is opt-in:
 RUN_DB_INTEGRATION_TESTS=true npm run test -- --run src/clubs/infrastructure/prisma-club-repository.integration.spec.ts
 ```
 
+## Promotions
+
+`ACCUMULATE_POINTS` grants one point to the booking creator when a non-staff-created
+booking ends with an accepted match. Eligible promotions are captured at booking
+creation; later changes to club participation do not change that eligibility.
+Existing bookings are not enrolled retroactively. Points are shared across all
+participating clubs, in one account per user and promotion type.
+
+Booking completion, match persistence and point credit run in the same database
+transaction. A unique booking/promotion award prevents duplicate credits. One
+administrative redemption consumes a positive number of available points chosen
+by the configured administrator; total lifetime points are not reduced.
+
+Both match proposal and match acceptance delegate to `SaveBookingMatchService`.
+Its application-level Unit of Work shares one transaction between match persistence
+and `AwardBookingPromotionsService`. On the transition to `END`, the promotion
+service credits the `PromotionAccount` aggregate only for `ACCUMULATE_POINTS`;
+other promotions, including `RACKET_FREE`, are not processed as point promotions.
+An error rolls back booking completion, match persistence and point credit together.
+The original booking timestamp is used for optimistic concurrency checks.
+There is no background worker, polling or outbox; points are available when the
+successful completion request returns.
+
+| Method | Route | Access |
+| --- | --- | --- |
+| GET | `/users/me/promotions?limit=50` | Authenticated user, own balances and latest awards/redemptions |
+| POST | `/admin/promotions/:promotion/redemptions` | Authenticated user matching `PROMOTIONS_ADMIN_USER_ID` |
+
+Club participation is managed directly in the database during the demo.
+Configure `PROMOTIONS_ADMIN_USER_ID` with the authorized user's ID. No user role
+is created or checked; if this environment variable is unset, redemption is denied.
+Redemption body: `{"requestId":"<uuid>","userId":"<uuid>","points":7}`.
+Only `ACCUMULATE_POINTS` supports this endpoint. Points must be a positive JSON
+integer, with no minimum reward threshold or multiple-of-ten requirement.
+Use the same request ID and payload for retries of the same redemption. Balances
+are updated atomically, and redemptions record the authenticated operator and clock
+time. New administrative redemptions have no club; existing club-linked history
+is retained. Apply the nullable-club migration and regenerate Prisma Client before
+using administrative redemptions.
+History is capped to the requested limit (1-100) for each movement category;
+account balances always cover the complete history.
+
+The promotion migration must be applied before using the new endpoints or creating
+bookings. Promotion records restrict physical deletion of their referenced users,
+bookings and clubs to preserve the award/redemption audit trail.
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.

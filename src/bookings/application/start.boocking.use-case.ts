@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundEx
 import { BOOKING_IREPOSITORY, type IBookingRepository } from "../infrastructure/booking-IRepository.js";
 import { CLOCK_SERVICE, type IClockService } from "../../service/interface/IClockService.js";
 import { GetClubStaffUseCase } from "../../clubs/application/club-use-cases.js";
-import { CLUB_IREPOSITORY, type IClubRepository } from "../../clubs/domain/club-IRepository.js";
+import { CLUB_IREPOSITORY, type IClubRepository } from "../../clubs/infrastructure/club-IRepository.js";
 import { DateTime } from "luxon";
 
   @Injectable()

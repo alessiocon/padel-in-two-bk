@@ -23,6 +23,7 @@ import { BookingTeam } from '../domain/entity/booking.team.entity.js';
 import { BookingMatch, MatchPropose } from '../domain/entity/booking.match.entity.js';
 import { TournamentMapper } from '../../tournament/infrastracture/prisma-tournament-mapper.js';
 import { BookingMatchScore } from '../domain/valueObject/booking.score.value.js';
+import { PromotionType } from '../../promotions/domain/promotion-type.js';
 
 
 export type PrismaBookingWithRelations = PrismaBooking & {
@@ -46,6 +47,7 @@ export const bookingSummarySelect = Prisma.validator<Prisma.BookingSelect>()({
   description: true,
   startsAt: true,
   endsAt: true,
+  price: true,
 });
 
 export type PrismaBookingSummarySelect = Prisma.BookingGetPayload<{
@@ -54,6 +56,7 @@ export type PrismaBookingSummarySelect = Prisma.BookingGetPayload<{
 
 export const bookingQuickSummarySelect = Prisma.validator<Prisma.BookingSelect>()({
   id: true,
+  eligiblePromotions: true,
   clubId: true,
   courtId: true,
   status: true,
@@ -61,6 +64,7 @@ export const bookingQuickSummarySelect = Prisma.validator<Prisma.BookingSelect>(
   description: true,
   startsAt: true,
   endsAt: true,
+  price: true,
   createdAt: true,
   club: { select: { name: true } },
   court: { select: { name: true, isIndoor: true } },
@@ -73,12 +77,14 @@ export type PrismaBookingQuickSummarySelect = Prisma.BookingGetPayload<{
 
 export const bookingDetailsSelect = Prisma.validator<Prisma.BookingSelect>()({
   id: true,
+  eligiblePromotions: true,
   courtId: true,
   status: true,
   clubId: true,
   description: true,
   startsAt: true,
   endsAt: true,
+  price: true,
 
   createdBy: {
     select: {
@@ -287,6 +293,8 @@ export abstract class BookingMapper {
       description: raw.description ?? undefined,
       startsAt: raw.startsAt,
       endsAt: raw.endsAt,
+      price: raw.price.toNumber(),
+      eligiblePromotions: raw.eligiblePromotions.map(promotion => PromotionType[promotion]),
       status: this.PRISMA_TO_DOMAIN_BOOKING_STATUS[raw.status],
       teams,
       match,
@@ -430,9 +438,11 @@ export abstract class BookingMapper {
       courtId: primitives.courtId,
       createdById: primitives.createdById,
       createdByStaff: primitives.createdByStaff,
+      eligiblePromotions: [...domainBooking.eligiblePromotions],
       description: primitives.description ?? null,
       startsAt: primitives.startsAt,
       endsAt: primitives.endsAt,
+      price: new Prisma.Decimal(primitives.price),
       status: this.DOMAIN_TO_PRISMA_BOOKING_STATUS[primitives.status],
       
       cancBy: primitives.cancBy ? this.DOMAIN_TO_PRISMA_BOOKING_CANCELEDBY[primitives.cancBy] : null,
@@ -547,6 +557,7 @@ export abstract class BookingMapper {
 
       startsAt: primitives.startsAt,
       endsAt: primitives.endsAt,
+      price: new Prisma.Decimal(primitives.price),
       status: this.DOMAIN_TO_PRISMA_BOOKING_STATUS[primitives.status],
       createdAt: primitives.createdAt,
       updatedAt: primitives.updatedAt,
@@ -585,11 +596,13 @@ export abstract class BookingMapper {
       courtName: record.court.name,
       createdByStaff: record.createdByStaff,
       nPlayer,
+      eligiblePromotions: record.eligiblePromotions.map(promotion => PromotionType[promotion]),
       isCourtIndoor: record.court.isIndoor,
       status: this.PRISMA_TO_DOMAIN_BOOKING_STATUS[record.status],
       description: record.description ?? '',
       startsAt: record.startsAt.toISOString(),
       endsAt: record.endsAt.toISOString(),
+      price: record.price.toNumber(),
       createdAt: record.createdAt,
     };
   }
@@ -599,6 +612,7 @@ export abstract class BookingMapper {
       id: record.id,
       createdBy: record.createdBy,
       createdByStaff: record.createdByStaff,
+      eligiblePromotions: record.eligiblePromotions.map(promotion => PromotionType[promotion]),
       courtId: record.courtId,
       isCourtIndoor: record.court.isIndoor,
       courtName: record.court.name,
@@ -612,6 +626,7 @@ export abstract class BookingMapper {
       description: record.description ?? '',
       startsAt: record.startsAt.toISOString(),
       endsAt: record.endsAt.toISOString(),
+      price: record.price.toNumber(),
       isIndoor: record.court.isIndoor,
       teams: record.teams.map(team => {
         return {

@@ -33,6 +33,9 @@ model Club {
   members             ClubMember[] @relation("MembersClub")
   courts   Court[]
   bookings Booking[]
+  pricingRules ClubPricingRule[]
+  promotions PromotionType[] @default([])
+  promotionRedemptions PromotionRedemption[]
 
   @@map("clubs")
 }
@@ -50,6 +53,7 @@ model Court {
   club          Club          @relation(fields: [clubId], references: [id], onDelete: Cascade)
   bookings      Booking[]
   matches       TournamentMatch[]
+  pricingRuleAssignments ClubPricingRuleCourt[]
 
   @@unique([clubId, name])
   @@unique([id, clubId])
@@ -87,4 +91,57 @@ enum ClubRole {
   MANAGER
   COACH
   STAFF
+}
+
+
+enum ClubPricingRulePriceMode {
+  MULTIPLIER      @map("multiplier")
+  FIXED_SLOT_PRICE @map("fixed_slot_price")
+
+  @@map("pricing_rule_price_mode")
+}
+
+enum ClubPricingRuleScope {
+  ALL_COURTS      @map("all_courts")
+  SELECTED_COURTS @map("selected_courts")
+
+  @@map("pricing_rule_scope")
+}
+
+model ClubPricingRule {
+  id          String               @id @default(uuid()) @db.Uuid
+  clubId      String               @map("club_id") @db.Uuid
+  name        String               @db.VarChar(120)
+  scope       ClubPricingRuleScope @default(ALL_COURTS)
+  weekdays    Int[]                @default([])
+  startTime   String               @map("start_time") @db.VarChar(5)
+  endTime     String               @map("end_time") @db.VarChar(5)
+  validFrom   DateTime             @map("valid_from") @db.Date
+  validUntil  DateTime?            @map("valid_until") @db.Date
+  priceMode   ClubPricingRulePriceMode @map("price_mode")
+  value       Decimal              @db.Decimal(10, 4)
+  priority    Int                  @default(0)
+  isActive    Boolean              @default(true) @map("is_active")
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+
+  club        Club                 @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  courtLinks  ClubPricingRuleCourt[]
+
+  @@unique([id, clubId])
+  @@index([clubId, isActive])
+  @@map("pricing_rules")
+}
+
+model ClubPricingRuleCourt {
+  pricingRuleId String      @map("pricing_rule_id") @db.Uuid
+  courtId       String      @map("court_id") @db.Uuid
+  clubId        String      @map("club_id") @db.Uuid
+
+  pricingRule   ClubPricingRule @relation(fields: [pricingRuleId, clubId], references: [id, clubId], onDelete: Cascade)
+  court         Court       @relation(fields: [courtId, clubId], references: [id, clubId], onDelete: Cascade)
+
+  @@id([pricingRuleId, courtId])
+  @@index([clubId, courtId])
+  @@map("pricing_rule_courts")
 }

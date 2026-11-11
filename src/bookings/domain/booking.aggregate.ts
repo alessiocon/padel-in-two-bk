@@ -6,6 +6,7 @@ import { BookingMatch, MatchPropose, MatchPropose as MatchProposeStatus } from "
 import { BookingSetScoreProps } from "./valueObject/booking.score.value.js";
 import { MatchFormat } from "../../tournament/domain/tournamentMatch.entity.js";
 import { BookingPlayerStatus } from "./entity/booking.player.entity.js";
+import { PromotionType } from '../../promotions/domain/promotion-type.js';
 
 export enum BookingStatus { RESERVED = "RESERVED" ,PENDING = "PENDING" ,CONFIRMED = "CONFIRMED" ,CANCELLED = "CANCELLED", IN_PROGRESS = "IN_PROGRESS", END = "END" };
 export enum BookingCancBy { USER = "USER" ,CLUB = "CLUB" };
@@ -19,6 +20,8 @@ export type BookingProps = {
   readonly description?: string;
   readonly startsAt: Date;
   readonly endsAt: Date;
+  readonly price: number;
+  readonly eligiblePromotions?: readonly PromotionType[];
   readonly status: BookingStatus;
 
   readonly teams: ReadonlyArray<BookingTeam>;
@@ -71,6 +74,8 @@ export class Booking {
       description: input.description,
       startsAt: input.startsAt,
       endsAt: input.endsAt,
+      price: input.price,
+      eligiblePromotions: input.createdByStaff ? [] : [...(input.eligiblePromotions ?? [])],
       status: input.status,
       teams: input.teams ?? [],
       logs: [createLog],
@@ -109,6 +114,15 @@ export class Booking {
   get cancAt(): Date|null { return this.props.cancAt; }
 
   get endsAt(): Date { return new Date(this.props.endsAt); }
+  get price(): number { return this.props.price; }
+  get updatedAt(): Date { return new Date(this.props.updatedAt); }
+  get eligiblePromotions(): readonly PromotionType[] { return [...(this.props.eligiblePromotions ?? [])]; }
+
+  promotionsToAward(): readonly PromotionType[] {
+    return !this.createdByStaff && this.status === BookingStatus.END &&
+      this.match?.status === MatchPropose.ACCEPTED && this.cancAt === null
+      ? this.eligiblePromotions : [];
+  }
   get status(): BookingStatus { return this.props.status; }
 
   public addTeam(team: BookingTeam, updateAt: Date): Booking {
@@ -518,6 +532,9 @@ export class Booking {
     }
     if (props.endsAt <= props.startsAt) {
       throw new Error('Booking end must be after start');
+    }
+    if (!Number.isFinite(props.price) || props.price < 0) {
+      throw new Error('Booking price must be a finite non-negative amount');
     }
     // if (props.endsAt.getTime() - props.startsAt.getTime() !== BOOKING_DURATION_MINUTES * 60_000) {
     //   throw new Error(`Booking duration must be exactly ${BOOKING_DURATION_MINUTES} minutes`);

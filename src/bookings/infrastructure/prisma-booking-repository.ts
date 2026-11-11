@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
 import { Booking, BookingStatus } from '../domain/booking.aggregate.js';
 import { BookingConflictError, BookingCourtNotFoundError } from '../domain/booking-errors.js';
@@ -11,7 +11,9 @@ import { BookingMatch } from '../domain/entity/booking.match.entity.js';
 
 @Injectable()
 export class PrismaBookingRepository implements IBookingRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+  ) {}
 
 
 
@@ -162,14 +164,24 @@ export class PrismaBookingRepository implements IBookingRepository {
     }
   }
 
-  async saveMatch(booking: Booking): Promise<BookingMatchResDto> {
+  async saveMatch(booking: Booking, expectedUpdatedAt: Date, transaction?: Prisma.TransactionClient): Promise<BookingMatchResDto> {
     try {
       const matchUpsert = this.buildMatchUpsert(booking);
       if (!matchUpsert) {
         throw new BadRequestException("Nessun match presente da salvare.");
       }
 
-      const record = await this.prisma.$transaction(async (transaction) => {
+      const persist = async (transaction: Prisma.TransactionClient) => {
+        const changed = await transaction.booking.updateMany({
+          where: { id: booking.id, updatedAt: expectedUpdatedAt, status: 'IN_PROGRESS' },
+          data: {
+            status: BookingMapper.DOMAIN_TO_PRISMA_BOOKING_STATUS[booking.status],
+            updatedAt: booking.updatedAt,
+          },
+        });
+        if (changed.count !== 1) {
+          throw new ConflictException('Booking changed concurrently; reload before retrying');
+        }
         const newLogs = await this.findNewLogs(transaction, booking);
 
         if (newLogs.length > 0) {
@@ -192,7 +204,9 @@ export class PrismaBookingRepository implements IBookingRepository {
         });
 
         return savedMatchRecord;
-      });
+      };
+
+      const record = await (transaction ? persist(transaction) : this.prisma.$transaction(persist));
 
       return BookingMapper.prismaToMatchDto(record);
     } catch (error) {

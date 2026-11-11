@@ -1,13 +1,14 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { CLOCK_SERVICE, type IClockService } from "../../service/interface/IClockService.js";
 import { BOOKING_IREPOSITORY, type IBookingRepository } from "../infrastructure/booking-IRepository.js";
-import { CLUB_IREPOSITORY, type IClubRepository } from "../../clubs/domain/club-IRepository.js";
+import { CLUB_IREPOSITORY, type IClubRepository } from "../../clubs/infrastructure/club-IRepository.js";
 import { Booking, BookingStatus } from "../domain/booking.aggregate.js";
 import { BookingTeam } from "../domain/entity/booking.team.entity.js";
 import { BookingLogs } from "../domain/valueObject/booking.log.value.js";
 import { BookingQuickResDto } from "../presentation/booking.dto.js";
 import {type IPlayerRepository, PLAYER_IREPOSITORY } from "../../player/infrastructure/player-IRepository.js";
 import { BookingPlayerStatus } from "../domain/entity/booking.player.entity.js";
+import { ICLUB_PRICING_RULE_REPOSITORY, type IClubPricingRuleRepository } from "../../club-pricing/infrastructure/pricing-rule.repository.js";
 
 export type CreateBookingInput = {
   clubId: string;
@@ -43,7 +44,8 @@ export class CreateBookingUseCase {
     @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
     @Inject(BOOKING_IREPOSITORY) private readonly bookingRepository: IBookingRepository,
     @Inject(CLUB_IREPOSITORY) private readonly clubRepository: IClubRepository,
-    @Inject(PLAYER_IREPOSITORY) private readonly playerRepository: IPlayerRepository
+    @Inject(PLAYER_IREPOSITORY) private readonly playerRepository: IPlayerRepository,
+    @Inject(ICLUB_PRICING_RULE_REPOSITORY) private readonly pricingRuleRepository: IClubPricingRuleRepository
   ) {}
   
   async execute(input: CreateBookingInput ): Promise<BookingQuickResDto> {
@@ -75,6 +77,8 @@ export class CreateBookingUseCase {
       throw new BadRequestException("Non fai parte dello staff, prenotazione annullata")
     }
 
+
+
     const endsAtUTC = club.calculateBookingEnd(input.startsAt, input.slots ?? 1);
     const court = club.courts.find(c => c.id === input.courtId);
     if (!court) {
@@ -93,6 +97,14 @@ export class CreateBookingUseCase {
     const [startAtUTC] = club.convertInTimeZone([input.startsAt]);
     
     await this.bookingRepository.hasOverlappingBooking(input.courtId, startAtUTC, endsAtUTC);
+
+    const pricingRules = await this.pricingRuleRepository.getAll(club.id);
+    const price = club.calculateBookingPrice({
+      courtId: court.id,
+      startsAt: startAtUTC,
+      slots: input.slots ?? 1,
+      rules: pricingRules,
+    });
     
     const now = this.clock.now();
     
@@ -108,6 +120,8 @@ export class CreateBookingUseCase {
       courtSize: court.size,
       startsAt: startAtUTC,
       endsAt: endsAtUTC,
+      price,
+      eligiblePromotions: club.eligiblePromotions(input.createdByStaff),
       status: initialStatus,
       teams: [],
       createdAt: now,
@@ -128,6 +142,10 @@ export class CreateBookingUseCase {
         });
 
         teamDto.players.forEach(playerDto => {
+          if(isClubOwner && input.username === playerDto.username){
+            throw new BadRequestException("Utilizza un profilo player per partecipare ad una partita");
+          }
+          
           const playerInput = playerDto.playerId
             ? { type: 'REGISTERED' as const, playerId: playerDto.playerId, userId: input.createdById }
             : {

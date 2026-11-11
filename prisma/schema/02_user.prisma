@@ -26,6 +26,8 @@ model User {
   
   createdBookings   Booking[]         @relation("BookingCreator")
   bookingLogs       BookingLogs[]     @relation("UserBookingLogs")
+  promotionAccounts PromotionAccount[]
+  promotionRedemptions PromotionRedemption[] @relation("PromotionRedemptionOperator")
 
   @@map("users")
 }

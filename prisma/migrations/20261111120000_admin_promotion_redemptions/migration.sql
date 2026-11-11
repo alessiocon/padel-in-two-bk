@@ -1,0 +1,1 @@
+ALTER TABLE "promotion_redemptions" ALTER COLUMN "club_id" DROP NOT NULL;

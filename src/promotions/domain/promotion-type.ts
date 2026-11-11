@@ -1,0 +1,4 @@
+export enum PromotionType {
+  ACCUMULATE_POINTS = 'ACCUMULATE_POINTS',
+  RACKET_FREE = 'RACKET_FREE',
+}

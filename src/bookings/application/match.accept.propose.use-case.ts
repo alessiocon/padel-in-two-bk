@@ -4,6 +4,7 @@ import { CLOCK_SERVICE, type IClockService } from "../../service/interface/ICloc
 import { BOOKING_IREPOSITORY, type IBookingRepository } from "../infrastructure/booking-IRepository.js";
 import { BookingDetailResDto, BookingMatchResDto, UpdateBookingDto } from "../presentation/booking.dto.js";
 import { type IPlayerRepository, PLAYER_IREPOSITORY } from "../../player/infrastructure/player-IRepository.js";
+import { SaveBookingMatchService } from './save-booking-match.service.js';
 
 
 export type MatchAcceptProposeUseCaseInput = {
@@ -21,7 +22,8 @@ export class MatchAcceptProposeUseCase {
   constructor(
     @Inject(BOOKING_IREPOSITORY) private readonly bookingRepository: IBookingRepository,
     @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
-    private readonly getClubStaffUseCase : GetClubStaffUseCase
+    private readonly getClubStaffUseCase : GetClubStaffUseCase,
+    private readonly saveBookingMatch: SaveBookingMatchService,
   ) {}
 
     async execute(input: MatchAcceptProposeUseCaseInput): Promise<BookingMatchResDto> {
@@ -38,7 +40,6 @@ export class MatchAcceptProposeUseCase {
           time
         })
         
-        await this.bookingRepository.update(updatedBooking);
-        return await this.bookingRepository.saveMatch(updatedBooking);
+        return await this.saveBookingMatch.execute(booking, updatedBooking);
     }
 }

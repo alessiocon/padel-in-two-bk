@@ -127,9 +127,9 @@ export class UserPrismaRepository implements IUserRepository {
 
   async RO_findList(search: usersListUseCaseProps) : Promise<UserSearchListResDto[]>{
     const whereCondition: Prisma.UserWhereInput = {
-        deletedAt: null,
-        NOT: {id: search.userSearchedId}
-        
+      deletedAt: null,
+      id: { not: search.userSearchedId},
+      player: { isNot: null},
     };
 
     if (search.username && search.username.trim() !== "") {

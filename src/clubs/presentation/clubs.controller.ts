@@ -9,8 +9,6 @@ import {
   ParseUUIDPipe,
   Post,
   Body,
-  Req,
-  Request,
 } from '@nestjs/common';
 import {
   ApiBody,
@@ -25,7 +23,6 @@ import {
 } from '@nestjs/swagger';
 import {
   CreateClubUseCase,
-  DeleteClubUseCase,
   GetClubByManagerUseCase,
   GetClubUseCase,
   ListClubsUseCase,
@@ -144,6 +141,7 @@ export class ClubsController {
     var { courts, updatedAt, createdAt, timezone, ...prop} = club.toPrimitives();
     return { 
       ...prop, 
+      promotions: [...club.promotions],
       courtsInDoor: courtsInDoor,
       courtsOutDoor: courtsOutDoor,
       averagePrice: averagePrice  };

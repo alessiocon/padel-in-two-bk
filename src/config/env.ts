@@ -15,6 +15,7 @@ export type AppEnv = {
   smtp_user: string;
   smtp_pass: string;
   smtp_from: string;
+  adminId?: string;
 };
 
 const normalizeNodeEnv = (value: string | undefined): NodeEnv => {
@@ -100,5 +101,6 @@ export function getEnv(): AppEnv {
     smtp_user,
     smtp_pass,
     smtp_from,
+    adminId: process.env.ADMIN_ID?.trim() || undefined,
   };
 }

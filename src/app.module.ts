@@ -9,6 +9,8 @@ import { AuthModule } from './auth/auth.module.js';
 import { NotificationModule } from './notification/notification.module.js';
 import { TournamentModule } from './tournament/tournament.module.js';
 import { PlayersModule } from './player/players.module.js';
+import { ClubPricingModule } from './club-pricing/club-pricing.module.js';
+import { PromotionsModule } from './promotions/promotions.module.js';
 
 
 @Module({
@@ -23,7 +25,9 @@ import { PlayersModule } from './player/players.module.js';
     AuthModule,
     NotificationModule,
     TournamentModule,
-    PlayersModule
+    PlayersModule,
+    ClubPricingModule,
+    PromotionsModule,
   ],
 })
 export class AppModule {}

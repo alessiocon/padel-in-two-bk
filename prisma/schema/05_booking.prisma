@@ -16,7 +16,6 @@ enum BookingCancBy {
 }
 
 
-
 model Booking {
   id                String                @id @default(uuid()) @db.Uuid
   clubId            String                @map("club_id") @db.Uuid
@@ -28,6 +27,7 @@ model Booking {
 
   startsAt          DateTime              @map("starts_at") @db.Timestamptz
   endsAt            DateTime              @map("ends_at") @db.Timestamptz
+  price             Decimal               @db.Decimal(10, 2)
   status            BookingStatus         @default(RESERVED)
          
   cancBy            BookingCancBy?        @map("cancelled_by")       
@@ -44,6 +44,8 @@ model Booking {
   teams             BookingTeam[]         @relation("BookingTeam")
   logs              BookingLogs[]         @relation("BookingLogs")
   match             BookingMatch?         @relation("BookingMatch")
+  eligiblePromotions PromotionType[]      @default([]) @map("eligible_promotions")
+  promotionAwards   PromotionAward[]
 
   @@unique([id, clubId])
   @@index([clubId, startsAt, endsAt])

@@ -1,9 +1,11 @@
+import { PromotionType } from '../../promotions/domain/promotion-type.js';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ArrayNotEmpty, IsArray, IsEmail, IsEnum, IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Matches, Max, MaxLength, Min, ValidateNested } from 'class-validator';
 import { ClubStatus} from "../domain/club.aggregate.js"
 import { CourtStatus} from "../domain/entity/court.entity.js"
 import { ClubRole } from '../domain/entity/club.member.entity.js';
 import { Type } from 'class-transformer';
+import { PricingRuleResponseDto as PricingRuleResDto } from '../../club-pricing/presentation/pricing-rule.dto.js';
 
 export class CreateClubDto {
   @ApiProperty({ example: 'Padel Milano' })
@@ -174,9 +176,11 @@ export class ClubsResDto {
   averagePrice: number;
 
   members: ClubMemberResDto[];
+  // @ApiProperty({ enum: PromotionType, isArray: true })
+  promotions!: PromotionType[];
 }
 
-export type ClubMemberResDto = {
+export class ClubMemberResDto {
   id: string;
   userId: string;
   clubId: string;
@@ -220,7 +224,15 @@ export class ClubResDto {
   @ApiProperty({type: [ClubCourtDto], description: 'Lista dei campi appartenenti al club'})
   courts: ClubCourtDto[]
 
+  @ApiProperty({type: [ClubMemberResDto], description: 'Lista dei membri appartenenti al club'})
   members: ClubMemberResDto[];
+
+  @ApiProperty({type: [PricingRuleResDto], description: 'Lista delle regole di prezzo applicabili  al club'})
+  priceRoles: PricingRuleResDto[]
+
+  @ApiProperty({ enum: PromotionType, isArray: true })
+  promotions!: PromotionType[];
 }
+
 
 

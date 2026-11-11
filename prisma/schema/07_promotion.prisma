@@ -1,0 +1,52 @@
+enum PromotionType {
+  ACCUMULATE_POINTS @map("accumulate_points")
+  RACKET_FREE @map("racket_free")
+  @@map("promotion_type")
+}
+
+model PromotionAccount {
+  id              String        @id @default(uuid()) @db.Uuid
+  userId          String        @map("user_id") @db.Uuid
+  promotion       PromotionType
+  totalPoints     Int           @default(0) @map("total_points")
+  availablePoints Int           @default(0) @map("available_points")
+  redeemedPoints  Int           @default(0) @map("redeemed_points")
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  user            User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  awards          PromotionAward[]
+  redemptions     PromotionRedemption[]
+
+  @@unique([userId, promotion])
+  @@map("promotion_accounts")
+}
+
+model PromotionAward {
+  id        String           @id @default(uuid()) @db.Uuid
+  accountId String           @map("account_id") @db.Uuid
+  bookingId String           @map("booking_id") @db.Uuid
+  promotion PromotionType
+  points    Int
+  createdAt DateTime         @map("created_at") @db.Timestamptz
+  account   PromotionAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  booking   Booking          @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+
+  @@unique([bookingId, promotion])
+  @@index([accountId, createdAt])
+  @@map("promotion_awards")
+}
+
+model PromotionRedemption {
+  id          String           @id @default(uuid()) @db.Uuid
+  accountId   String           @map("account_id") @db.Uuid
+  clubId      String?          @map("club_id") @db.Uuid
+  redeemedById String          @map("redeemed_by_id") @db.Uuid
+  points      Int
+  createdAt   DateTime         @map("created_at") @db.Timestamptz
+  account     PromotionAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  club        Club?            @relation(fields: [clubId], references: [id], onDelete: Restrict)
+  redeemedBy  User             @relation("PromotionRedemptionOperator", fields: [redeemedById], references: [id], onDelete: Restrict)
+
+  @@index([accountId, createdAt])
+  @@map("promotion_redemptions")
+}

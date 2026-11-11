@@ -13,7 +13,7 @@ export interface IBookingRepository {
   
   delete(bookingId: string): Promise<boolean>
 
-  saveMatch(booking: Booking): Promise<BookingMatchResDto>
+  saveMatch(booking: Booking, expectedUpdatedAt: Date): Promise<BookingMatchResDto>
   deleteMatch(booking: Booking): Promise<void>
 
   countUserBookingsInWeek(clubId:string, userId: string, from: Date, to: Date): Promise<number>
