@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { EMAIL_SERVICE } from './domain/ports/email.service.port.js';
 import { NodemailerAdapter } from './infrastructure/adapters/nodemailer.adapter.js';
 import { UserRegisteredListener } from './application/listners/user.listener.js'
+import { BookingListener } from './application/listners/booking.listener.js';
 
 @Module({
   imports: [ConfigModule],
@@ -12,6 +13,7 @@ import { UserRegisteredListener } from './application/listners/user.listener.js'
       useClass: NodemailerAdapter,
     },
     UserRegisteredListener,
+    BookingListener,
   ],
   exports: [EMAIL_SERVICE],
 })

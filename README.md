@@ -56,6 +56,9 @@ Application use cases declare repository dependencies explicitly with `@Inject(T
 
 ## Availability and Bookings
 
+`MATCH_PROPOSAL_DELAY_MINUTES` sets how many minutes after the booking starts a match result can be proposed. It defaults to `15` and accepts non-negative integers.
+`MATCH_START_EARLY_MINUTES` sets how many minutes before the booking starts a match can be started. It defaults to `15` and accepts non-negative integers.
+
 Availability is a read model calculated for a fixed interval from operational courts and active bookings. It is not stored as a calendar slot.
 
 | Method | Route | Success |

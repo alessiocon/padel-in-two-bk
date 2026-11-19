@@ -15,6 +15,8 @@ export type AppEnv = {
   smtp_user: string;
   smtp_pass: string;
   smtp_from: string;
+  matchProposalDelayMinutes: number;
+  matchStartEarlyMinutes: number;
   adminId?: string;
 };
 
@@ -32,6 +34,18 @@ export function getEnv(): AppEnv {
 
   if (!Number.isInteger(portValue) || portValue <= 0) {
     throw new Error('Missing or invalid env: PORT must be a positive integer.');
+  }
+
+  const matchProposalDelayValue = process.env.MATCH_PROPOSAL_DELAY_MINUTES ?? '15';
+  const matchProposalDelayMinutes = Number(matchProposalDelayValue);
+  if (!matchProposalDelayValue.trim() || !Number.isInteger(matchProposalDelayMinutes) || matchProposalDelayMinutes < 0) {
+    throw new Error('Invalid env: MATCH_PROPOSAL_DELAY_MINUTES must be a non-negative integer.');
+  }
+
+  const matchStartEarlyValue = process.env.MATCH_START_EARLY_MINUTES ?? '15';
+  const matchStartEarlyMinutes = Number(matchStartEarlyValue);
+  if (!matchStartEarlyValue.trim() || !Number.isInteger(matchStartEarlyMinutes) || matchStartEarlyMinutes < 0) {
+    throw new Error('Invalid env: MATCH_START_EARLY_MINUTES must be a non-negative integer.');
   }
 
   const databaseUrl = process.env.DATABASE_URL?.trim();
@@ -101,6 +115,8 @@ export function getEnv(): AppEnv {
     smtp_user,
     smtp_pass,
     smtp_from,
+    matchProposalDelayMinutes,
+    matchStartEarlyMinutes,
     adminId: process.env.ADMIN_ID?.trim() || undefined,
   };
 }

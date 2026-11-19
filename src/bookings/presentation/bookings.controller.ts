@@ -7,6 +7,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
   Param,
+  ParseArrayPipe,
   ParseUUIDPipe,
   Post,
   Body,
@@ -15,6 +16,7 @@ import {
   Query,
   Delete,
   Req,
+  ValidationPipe,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -45,6 +47,8 @@ import { MatchAcceptProposeUseCase } from '../application/match.accept.propose.u
 import { MatchRemoveProposeUseCase } from '../application/match.remove.propose.use-case.js';
 import { GetMatchByBookingId} from '../application/get.match.by.bookingid.use-case.js';
 import { StartBookingUseCase } from '../application/start.boocking.use-case.js';
+import { GetCalendarBookingsUseCase } from '../application/get.calendar.bookings.use-case.js';
+import { CalendarBookingResDto, SearchBookingQueryDto } from './booking.dto.js';
 
 @ApiTags('bookings')
 @Controller('bookings')
@@ -54,6 +58,7 @@ export class BookingsController {
     private readonly getBooking: GetBookingByIdUseCase,
     private readonly searchBookings: SearchBookingsUseCase,
     private readonly searchBookingsManager: SearchBookingsManagerUseCase,
+    private readonly calendarBookings: GetCalendarBookingsUseCase,
     private readonly CancelBooking: CancelPrenotationUseCase,
     private readonly AcceptBooking: AcceptBookingUseCase,
     private readonly StartBooking: StartBookingUseCase,
@@ -75,21 +80,26 @@ export class BookingsController {
   @ApiNotFoundResponse({ description: 'Booking not found' })
   @ApiQuery({ name: 'from', required: false, type: String })
   @ApiQuery({ name: 'to', required: false, type: String })
+  @ApiQuery({ name: 'status', required: false, enum: BookingStatus, isArray: true })
   async serachBookings(
     @Query('clubId') clubId: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('status', new ParseArrayPipe({ items: String, optional: true })) status?: BookingStatus[],
   ): Promise<BookingQuickResDto[]> {
     try {
       return await this.searchBookings.execute({ 
         clubId, 
         from, 
         to, 
+        status,
       });
     } catch (error) {
       throw this.toHttpError(error);
     }
   } 
+
+
 
   @Get("clubs/:clubId/manager")
   @Auth()
@@ -100,14 +110,14 @@ export class BookingsController {
   @ApiQuery({ name: 'from', required: false, type: String })
   @ApiQuery({ name: 'to', required: false, type: String })
   @ApiQuery({ name: 'playerId', required: false, type: String })
-  @ApiQuery({ name: 'status', required: false, type: String })
+  @ApiQuery({ name: 'status', required: false, enum: BookingStatus, isArray: true })
   async searchBookingForManager(
     @Request() req: any,
     @Param('clubId', new ParseUUIDPipe()) clubId: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('playerId') playerId?: string,
-    @Query('status') status?: BookingStatus,
+    @Query('status', new ParseArrayPipe({ items: String, optional: true })) status?: BookingStatus[],
   ): Promise<BookingQuickResDto[]> {
     try {
       return await this.searchBookingsManager.execute({
@@ -132,19 +142,39 @@ export class BookingsController {
   @ApiQuery({ name: 'from', required: false, type: String })
   @ApiQuery({ name: 'to', required: false, type: String })
   @ApiQuery({ name: 'clubId', required: false, type: String })
-  @ApiQuery({ name: 'status', required: false, type: String })
+  @ApiQuery({ name: 'status', required: false, enum: BookingStatus, isArray: true })
   async searchBookingOfUser(
     @Request() req: any,
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('clubId') clubId?: string,
-    @Query('status') status?: BookingStatus,
+    @Query('status', new ParseArrayPipe({ items: String, optional: true })) status?: BookingStatus[],
   ): Promise<BookingQuickResDto[]> {
     try {
       return  await this.searchBookings.execute({ clubId, from, to, status, 
         createdById: req.user.sub, 
         playerId: req.user.playerId
       });
+    } catch (error) {
+      throw this.toHttpError(error);
+    }
+  }
+
+  @Get('user/calendar')
+  @Auth()
+  @ApiOperation({ summary: 'Get all bookings in a calendar date range' })
+  @ApiOkResponse({ type: [CalendarBookingResDto] })
+  @ApiBadRequestResponse({ description: 'Invalid date range or search filters' })
+  async getCalendarBookings(
+    @Request() req: any,
+    @Query(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true })) search: SearchBookingQueryDto,
+  ): Promise<CalendarBookingResDto[]> {
+    try {
+      return await this.calendarBookings.execute(
+        {...search,  
+          createdById: req.user.sub, 
+          playerId: req.user.playerId
+        });
     } catch (error) {
       throw this.toHttpError(error);
     }

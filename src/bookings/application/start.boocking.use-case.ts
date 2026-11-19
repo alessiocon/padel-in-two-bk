@@ -4,6 +4,7 @@ import { CLOCK_SERVICE, type IClockService } from "../../service/interface/ICloc
 import { GetClubStaffUseCase } from "../../clubs/application/club-use-cases.js";
 import { CLUB_IREPOSITORY, type IClubRepository } from "../../clubs/infrastructure/club-IRepository.js";
 import { DateTime } from "luxon";
+import { ENV_CONFIG, type AppEnv } from "../../config/env.js";
 
   @Injectable()
   export class StartBookingUseCase {
@@ -11,7 +12,8 @@ import { DateTime } from "luxon";
       @Inject(BOOKING_IREPOSITORY) private readonly bookingRepository: IBookingRepository,
       @Inject(CLUB_IREPOSITORY) private readonly clubRepository: IClubRepository,
       @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
-      private readonly getClubStaffUseCase : GetClubStaffUseCase
+      private readonly getClubStaffUseCase : GetClubStaffUseCase,
+      @Inject(ENV_CONFIG) private readonly env: AppEnv,
     ) {}
 
     async execute(bookingId: string, userId: string, username: string): Promise<boolean> {
@@ -32,9 +34,9 @@ import { DateTime } from "luxon";
       const now = DateTime.fromJSDate(nowInTimeZone); 
       const start = DateTime.fromJSDate(booking.startsAt);
 
-      const allowedStartTime = start.minus({ minutes: 15 });
+      const allowedStartTime = start.minus({ minutes: this.env.matchStartEarlyMinutes });
 
-      if (now < allowedStartTime) {
+      if (this.env.matchStartEarlyMinutes != 0 && now < allowedStartTime) {
         const diff = allowedStartTime.diff(now, ['days', 'hours', 'minutes', 'seconds']).toObject();
 
         const days = Math.floor(diff.days || 0);

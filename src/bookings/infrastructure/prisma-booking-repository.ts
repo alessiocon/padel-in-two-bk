@@ -2,9 +2,9 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { PrismaService } from '../../database/prisma.service.js';
 import { Booking, BookingStatus } from '../domain/booking.aggregate.js';
 import { BookingConflictError, BookingCourtNotFoundError } from '../domain/booking-errors.js';
-import type { IBookingRepository } from '../infrastructure/booking-IRepository.js';
-import { BookingMapper, bookingQuickSummarySelect, bookingSummarySelect, bookingDetailsSelect, bookingMatchSelect } from './prisma-booking-mapper.js';
-import { BookingQuickResDto, BookingDetailResDto, SearchBookingQuery, BookingMatchResDto } from '../presentation/booking.dto.js';
+import type { BookingSearchFilter, IBookingRepository } from '../infrastructure/booking-IRepository.js';
+import { BookingMapper, bookingQuickSummarySelect, bookingSummarySelect, bookingDetailsSelect, bookingMatchSelect, calendarBookingSelect } from './prisma-booking-mapper.js';
+import { BookingQuickResDto, BookingDetailResDto, BookingMatchResDto, CalendarBookingResDto } from '../presentation/booking.dto.js';
 import { Prisma } from '@prisma/client';
 import { TournamentMapper } from '../../tournament/infrastracture/prisma-tournament-mapper.js';
 import { BookingMatch } from '../domain/entity/booking.match.entity.js';
@@ -435,7 +435,7 @@ export class PrismaBookingRepository implements IBookingRepository {
 
 
    //TODO: QUI SPECIFICARE USERID, PlayerId e ManagerId che attualmente prende sempre userId e non va bene
-  async RO_SearchBookings(query: SearchBookingQuery & {from?: Date, to?: Date}) : Promise<BookingQuickResDto[]> {
+  async RO_SearchBookings(query: BookingSearchFilter) : Promise<BookingQuickResDto[]> {
 
     const orConditions: Prisma.BookingWhereInput[] = [];
 
@@ -450,7 +450,7 @@ export class PrismaBookingRepository implements IBookingRepository {
 
     const whereCondition: Prisma.BookingWhereInput = {
       ...(query.clubId ? { clubId: query.clubId } : {}),
-      ...(query.status ? { status: query.status } : {}),
+      ...(query.status?.length ? { status: { in: query.status } } : {}),
       ...(query.from || query.to
         ? {
             startsAt: {
@@ -474,6 +474,31 @@ export class PrismaBookingRepository implements IBookingRepository {
   }
 
 
+
+  async RO_GetCalendarBookings(query: BookingSearchFilter): Promise<CalendarBookingResDto[]> {
+    const orConditions: Prisma.BookingWhereInput[] = [];
+    if (query.createdById) orConditions.push({ createdById: query.createdById });
+    if (query.playerId) {
+      orConditions.push({ teams: { some: { players: { some: { playerId: query.playerId } } } } });
+    }
+
+    const records = await this.prisma.booking.findMany({
+      where: {
+        ...(query.clubId ? { clubId: query.clubId } : {}),
+        ...(query.status?.length ? { status: { in: query.status } } : {}),
+        startsAt: {
+          ...(query.from ? { gte: query.from } : {}),
+          ...(query.to ? { lte: query.to } : {}),
+        },
+        ...(orConditions.length ? { OR: orConditions } : {}),
+        ...(query.member ? { club: { members: { some: { userId: query.member } } } } : {}),
+      },
+      select: calendarBookingSelect,
+      orderBy: [{ startsAt: 'asc' }, { id: 'asc' }],
+    });
+
+    return records.map(record => BookingMapper.prismaToCalendarBookingResDto(record, query.playerId));
+  }
 
   async RO_FindDetailsById(id: string, userId: string, playerId: string): Promise<BookingDetailResDto> {
 

@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsDateString, IsIn, IsUUID, IsOptional, MaxLength, IsString, IsNotEmpty, IsArray, ValidateNested, ArrayMinSize, ArrayMaxSize, ArrayNotEmpty, IsBoolean, Max, Min, IsInt, IsEnum } from 'class-validator';
 import { BookingCancBy, BookingStatus } from '../domain/booking.aggregate.js';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { BookingPlayerStatus } from '../domain/entity/booking.player.entity.js';
 import { BookingEventType } from '../domain/valueObject/booking.log.value.js';
 import { MatchFormat } from '../../tournament/domain/tournamentMatch.entity.js';
@@ -179,13 +179,56 @@ export class UpdateBookingPlayerDto {
 
 
 export class SearchBookingQuery {
+   @ApiProperty({ required: false, example: '2026-11-18' })
+   @IsOptional()
+   @IsString()
    from?: string;
+   @ApiProperty({ required: false, example: '2026-11-25' })
+   @IsOptional()
+   @IsString()
    to?: string;
+   @ApiProperty({ required: false, format: 'uuid' })
+   @IsOptional()
+   @IsUUID()
    clubId?: string;
+   @ApiProperty({ required: false, format: 'uuid' })
+   @IsOptional()
+   @IsUUID()
    createdById?: string;
+   @ApiProperty({ required: false, format: 'uuid' })
+   @IsOptional()
+   @IsUUID()
    playerId?: string;
+   @ApiProperty({ required: false, format: 'uuid' })
+   @IsOptional()
+   @IsUUID()
    member?: string; 
-   status?: BookingStatus
+  @ApiProperty({ required: false, enum: BookingStatus, isArray: true })
+  @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? value.split(',').map(status => status.trim()) : value)
+  @IsArray()
+  @IsEnum(BookingStatus, { each: true })
+  status?: BookingStatus[];
+}
+
+export class SearchBookingQueryDto extends SearchBookingQuery {}
+
+export class CalendarBookingResDto {
+  id: string;
+  clubId: string;
+  clubName: string;
+  isCourtIndoor: boolean;
+
+  status: BookingStatus;
+  startsAt: string;
+  endsAt: string;
+  price: number;
+  isPlayer: boolean;
+  win: boolean;
+  team1?: string;
+  team2?: string;
+  setTeam1?: number;
+  setTeam2?: number;
 }
 
 

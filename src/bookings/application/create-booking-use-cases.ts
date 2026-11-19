@@ -9,6 +9,8 @@ import { BookingQuickResDto } from "../presentation/booking.dto.js";
 import {type IPlayerRepository, PLAYER_IREPOSITORY } from "../../player/infrastructure/player-IRepository.js";
 import { BookingPlayerStatus } from "../domain/entity/booking.player.entity.js";
 import { ICLUB_PRICING_RULE_REPOSITORY, type IClubPricingRuleRepository } from "../../club-pricing/infrastructure/pricing-rule.repository.js";
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { BookingCreatedEvent, BookingPlayerInvitedEvent } from '../domain/booking-events.js';
 
 export type CreateBookingInput = {
   clubId: string;
@@ -45,7 +47,8 @@ export class CreateBookingUseCase {
     @Inject(BOOKING_IREPOSITORY) private readonly bookingRepository: IBookingRepository,
     @Inject(CLUB_IREPOSITORY) private readonly clubRepository: IClubRepository,
     @Inject(PLAYER_IREPOSITORY) private readonly playerRepository: IPlayerRepository,
-    @Inject(ICLUB_PRICING_RULE_REPOSITORY) private readonly pricingRuleRepository: IClubPricingRuleRepository
+    @Inject(ICLUB_PRICING_RULE_REPOSITORY) private readonly pricingRuleRepository: IClubPricingRuleRepository,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
   
   async execute(input: CreateBookingInput ): Promise<BookingQuickResDto> {
@@ -189,6 +192,19 @@ export class CreateBookingUseCase {
     booking = booking.addLogs(logs, now);
 
     const savedBooking = await this.bookingRepository.create(booking);
+    if(booking.status !== BookingStatus.RESERVED) {
+      this.eventEmitter.emit('booking.created', new BookingCreatedEvent(booking.id, input.createdById, input.username));
+    }
+    
+    for (const team of booking.teams) {
+      for (const player of team.players) {
+        if (player.playerId && player.status === BookingPlayerStatus.PENDING) {
+          this.eventEmitter.emit('booking.player.invited', new BookingPlayerInvitedEvent(
+            booking.id, input.createdById, input.username, player.playerId,
+          ));
+        }
+      }
+    }
     return savedBooking;
   }
 
@@ -213,9 +229,9 @@ export class CreateBookingUseCase {
       endOfWeek,
     );
 
-    if (existingCount >= 1) {
+    if (existingCount >= 5) {
       throw new BadRequestException(
-        "In questa demo: puoi effettuare al massimo 1 prenotazione a settimana per ciascun club."
+        "In questa demo: puoi effettuare al massimo 5 prenotazioni a settimana per ciascun club."
       );
     }
   }

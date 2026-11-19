@@ -5,6 +5,8 @@ import { BOOKING_IREPOSITORY, type IBookingRepository } from "../infrastructure/
 import { BookingDetailResDto, BookingMatchResDto, UpdateBookingDto } from "../presentation/booking.dto.js";
 import { type IPlayerRepository, PLAYER_IREPOSITORY } from "../../player/infrastructure/player-IRepository.js";
 import { SaveBookingMatchService } from './save-booking-match.service.js';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { BookingMatchRespondedEvent } from '../domain/booking-events.js';
 
 
 export type MatchAcceptProposeUseCaseInput = {
@@ -24,6 +26,7 @@ export class MatchAcceptProposeUseCase {
     @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
     private readonly getClubStaffUseCase : GetClubStaffUseCase,
     private readonly saveBookingMatch: SaveBookingMatchService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
     async execute(input: MatchAcceptProposeUseCaseInput): Promise<BookingMatchResDto> {
@@ -40,6 +43,10 @@ export class MatchAcceptProposeUseCase {
           time
         })
         
-        return await this.saveBookingMatch.execute(booking, updatedBooking);
+        const savedMatch = await this.saveBookingMatch.execute(booking, updatedBooking);
+        this.eventEmitter.emit('booking.match.responded', new BookingMatchRespondedEvent(
+          input.bookingId, input.userId, input.username, input.isAccepted,
+        ));
+        return savedMatch;
     }
 }

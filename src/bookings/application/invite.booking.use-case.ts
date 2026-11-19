@@ -5,6 +5,8 @@ import { BookingLogs } from '../domain/valueObject/booking.log.value.js';
 import { BookingDetailResDto } from '../presentation/booking.dto.js';
 import { BookingPlayerStatus } from '../domain/entity/booking.player.entity.js';
 import { type IPlayerRepository, PLAYER_IREPOSITORY } from '../../player/infrastructure/player-IRepository.js';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { BookingPlayerInvitedEvent } from '../domain/booking-events.js';
 
 export type InviteBookingInput = {
   bookingId: string;
@@ -24,6 +26,7 @@ export class InviteBookingUseCase {
     @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
     @Inject(BOOKING_IREPOSITORY) private readonly bookingRepository: IBookingRepository,
     @Inject(PLAYER_IREPOSITORY) private readonly playerRespository: IPlayerRepository,
+    private readonly eventEmitter: EventEmitter2,
     
   ) {}
 
@@ -66,6 +69,12 @@ export class InviteBookingUseCase {
       inputLog
     );
 
-    return await this.bookingRepository.update(updatedBooking);
+    const savedBooking = await this.bookingRepository.update(updatedBooking);
+    if (input.playerId && initialPlayerStatus === BookingPlayerStatus.PENDING) {
+      this.eventEmitter.emit('booking.player.invited', new BookingPlayerInvitedEvent(
+        input.bookingId, input.inviterId, input.inviterUsername, input.playerId,
+      ));
+    }
+    return savedBooking;
   }
 }

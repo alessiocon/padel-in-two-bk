@@ -7,6 +7,9 @@ import { MatchFormat } from "../../tournament/domain/tournamentMatch.entity.js";
 import { CLUB_IREPOSITORY, type IClubRepository } from "../../clubs/infrastructure/club-IRepository.js";
 import { DateTime } from "luxon";
 import { SaveBookingMatchService } from './save-booking-match.service.js';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { BookingMatchProposedEvent } from '../domain/booking-events.js';
+import { ENV_CONFIG, type AppEnv } from '../../config/env.js';
 
 
 export type MatchAddProposeUseCaseInput = {
@@ -28,6 +31,8 @@ export class MatchAddProposeUseCase {
     @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
     private readonly getClubStaffUseCase : GetClubStaffUseCase,
     private readonly saveBookingMatch: SaveBookingMatchService,
+    private readonly eventEmitter: EventEmitter2,
+    @Inject(ENV_CONFIG) private readonly env: AppEnv,
   ) {}
 
     async execute(input: MatchAddProposeUseCaseInput): Promise<BookingMatchResDto> {
@@ -40,9 +45,9 @@ export class MatchAddProposeUseCase {
 
         const now = DateTime.fromJSDate(nowInTimeZone); 
         const start = DateTime.fromJSDate(booking.startsAt);
-        const extendedDeadline = start.plus({ minutes: 15 });
+        const extendedDeadline = start.plus({ minutes: this.env.matchProposalDelayMinutes });
   
-        if (now < extendedDeadline) {
+        if (this.env.matchProposalDelayMinutes != 0 && now < extendedDeadline) {
           const diff = now.diff(extendedDeadline, ['days', 'hours', 'minutes', 'seconds']).toObject();
 
           const days = Math.floor(diff.days || 0);
@@ -69,6 +74,10 @@ export class MatchAddProposeUseCase {
           time
         })
 
-        return await this.saveBookingMatch.execute(booking, updatedBooking);
+        const savedMatch = await this.saveBookingMatch.execute(booking, updatedBooking);
+        this.eventEmitter.emit('booking.match.proposed', new BookingMatchProposedEvent(
+          input.bookingId, input.userId, input.username,
+        ));
+        return savedMatch;
     }
 }

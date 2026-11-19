@@ -1,8 +1,13 @@
 import { Booking, BookingStatus } from '../domain/booking.aggregate.js';
 import { BookingMatch } from '../domain/entity/booking.match.entity.js';
-import { BookingQuickResDto, BookingDetailResDto, SearchBookingQuery, BookingMatchResDto } from '../presentation/booking.dto.js';
+import { BookingQuickResDto, BookingDetailResDto, SearchBookingQuery, BookingMatchResDto, CalendarBookingResDto } from '../presentation/booking.dto.js';
 
 export const BOOKING_IREPOSITORY = Symbol('BOOKING_REPOSITORY');
+
+export type BookingSearchFilter = Omit<SearchBookingQuery, 'from' | 'to'> & {
+  from?: Date;
+  to?: Date;
+};
 
 export interface IBookingRepository {
   create(booking: Booking): Promise<BookingQuickResDto>;
@@ -19,7 +24,8 @@ export interface IBookingRepository {
   countUserBookingsInWeek(clubId:string, userId: string, from: Date, to: Date): Promise<number>
 
   RO_FindAllByClubId(clubId: string, from?: Date, to?: Date): Promise<BookingQuickResDto[]>
-  RO_SearchBookings(query: SearchBookingQuery | {from?: Date, to?: Date}): Promise<BookingQuickResDto[]>
+  RO_SearchBookings(query: BookingSearchFilter): Promise<BookingQuickResDto[]>
+  RO_GetCalendarBookings(query: BookingSearchFilter): Promise<CalendarBookingResDto[]>
   RO_FindDetailsById(id: string, userId: string, playerId: string): Promise<BookingDetailResDto>
   RO_FindMatchByBookingId(id: string, userId: string, playerId: string): Promise<BookingMatchResDto | null>
 }

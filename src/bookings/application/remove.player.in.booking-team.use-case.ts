@@ -2,6 +2,8 @@ import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nest
 import { CLOCK_SERVICE, type IClockService } from '../../service/interface/IClockService.js';
 import { BOOKING_IREPOSITORY, type IBookingRepository } from '../infrastructure/booking-IRepository.js';
 import { BookingDetailResDto } from '../presentation/booking.dto.js';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { BookingPlayerRemovedEvent } from '../domain/booking-events.js';
 
 export type RemovePlayerInBookingTeamInput = {
   bookingId: string;
@@ -17,6 +19,7 @@ export class RemovePlayerInBookingTeamUseCase {
   constructor(
     @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
     @Inject(BOOKING_IREPOSITORY) private readonly bookingRepository: IBookingRepository,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async execute(input: RemovePlayerInBookingTeamInput): Promise<BookingDetailResDto> {
@@ -34,6 +37,10 @@ export class RemovePlayerInBookingTeamUseCase {
       this.clock.now(),
     );
 
-    return await this.bookingRepository.update(updatedBooking);
+    const savedBooking = await this.bookingRepository.update(updatedBooking);
+    this.eventEmitter.emit('booking.player.removed', new BookingPlayerRemovedEvent(
+      input.bookingId, input.requesterId, input.requesterUsername, input.playerId,
+    ));
+    return savedBooking;
   }
 }

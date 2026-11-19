@@ -4,6 +4,8 @@ import { BOOKING_IREPOSITORY, type IBookingRepository } from "../infrastructure/
 import { BookingLogs, BookingEventType } from "../domain/valueObject/booking.log.value.js";
 import { BookingDetailResDto } from "../presentation/booking.dto.js";
 import { type IPlayerRepository, PLAYER_IREPOSITORY } from "../../player/infrastructure/player-IRepository.js";
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { BookingPlayerRespondedEvent } from '../domain/booking-events.js';
 
 export type IsAcceptedBookingByUserInput = {
   bookingId: string;
@@ -19,6 +21,7 @@ export class IsAcceptedBookingByUserUseCase {
     @Inject(CLOCK_SERVICE) private readonly clock: IClockService,
     @Inject(BOOKING_IREPOSITORY) private readonly bookingRepository: IBookingRepository,
     @Inject(PLAYER_IREPOSITORY) private readonly playerRepository: IPlayerRepository,
+    private readonly eventEmitter: EventEmitter2,
   ){}
   
   async execute(input: IsAcceptedBookingByUserInput): Promise<BookingDetailResDto> {
@@ -41,6 +44,10 @@ export class IsAcceptedBookingByUserUseCase {
 
     booking = booking.addLogs([auditLog], now);
 
-    return await this.bookingRepository.update(booking);
+    const savedBooking = await this.bookingRepository.update(booking);
+    this.eventEmitter.emit('booking.player.responded', new BookingPlayerRespondedEvent(
+      input.bookingId, input.userId, input.username, input.isAccepted,
+    ));
+    return savedBooking;
   }
 }

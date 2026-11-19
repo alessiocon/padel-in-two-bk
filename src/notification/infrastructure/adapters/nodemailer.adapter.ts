@@ -24,7 +24,7 @@ export class NodemailerAdapter implements EmailService {
   async sendEmail(payload: SendEmailPayload): Promise<void> {
     try {
       const mailOptions: nodemailer.SendMailOptions = {
-        from: `\"Padel Platform\" <${this.env.smtp_from}>`,
+        from: `\"PadelInTwo\" <${this.env.smtp_from}>`,
         to: payload.to,
         subject: payload.subject,
         text: payload.text,

@@ -16,7 +16,7 @@ import {
   User as PrismaUser
 } from '@prisma/client';
 import { Booking, BookingCancBy, BookingStatus} from '../domain/booking.aggregate.js';
-import { BookingQuickResDto, BookingTeamResDto, BookingDetailResDto, BookingMatchResDto } from '../presentation/booking.dto.js';
+import { BookingQuickResDto, BookingTeamResDto, BookingDetailResDto, BookingMatchResDto, CalendarBookingResDto } from '../presentation/booking.dto.js';
 import { BookingLogs, BookingEventType } from '../domain/valueObject/booking.log.value.js';
 import { BookingPlayer, BookingPlayerStatus, PlayerIdentity } from '../domain/entity/booking.player.entity.js';
 import { BookingTeam } from '../domain/entity/booking.team.entity.js';
@@ -73,6 +73,38 @@ export const bookingQuickSummarySelect = Prisma.validator<Prisma.BookingSelect>(
 
 export type PrismaBookingQuickSummarySelect = Prisma.BookingGetPayload<{
   select: typeof bookingQuickSummarySelect;
+}>;
+
+export const calendarBookingSelect = Prisma.validator<Prisma.BookingSelect>()({
+  id: true,
+  clubId: true,
+  status: true,
+  startsAt: true,
+  endsAt: true,
+  price: true,
+  club: { select: { name: true } },
+  court: { select: { isIndoor: true } },
+  teams: {
+    select: {
+      teamNumber: true,
+      teamName: true,
+      players: { select: { playerId: true } },
+    },
+  },
+  match: {
+    select: {
+      status: true,
+      winnerTeamNumber: true,
+      sets: {
+        orderBy: { setNumber: 'asc' },
+        select: { team1Games: true, team2Games: true },
+      },
+    },
+  },
+});
+
+export type PrismaCalendarBookingSelect = Prisma.BookingGetPayload<{
+  select: typeof calendarBookingSelect;
 }>;
 
 export const bookingDetailsSelect = Prisma.validator<Prisma.BookingSelect>()({
@@ -579,6 +611,34 @@ export abstract class BookingMapper {
   //     endsAt: record.endsAt,
   //   } as BookingRes;
   // }
+
+  static prismaToCalendarBookingResDto(record: PrismaCalendarBookingSelect, playerId?: string): CalendarBookingResDto {
+    const match = record.match?.status === PrismaMatchPropose.ACCEPTED ? record.match : undefined;
+    const playerTeam = playerId
+      ? record.teams.find(team => team.players.some(player => player.playerId === playerId))
+      : undefined;
+    let setTeam1 = 0;
+    let setTeam2 = 0;
+
+    match?.sets.forEach(set => { set.team1Games > set.team2Games ? setTeam1 += 1 : setTeam2 += 1;});
+
+    return {
+      id: record.id,
+      clubId: record.clubId,
+      clubName: record.club.name,
+      isCourtIndoor: record.court.isIndoor,
+      status: this.PRISMA_TO_DOMAIN_BOOKING_STATUS[record.status],
+      startsAt: record.startsAt.toISOString(),
+      endsAt: record.endsAt.toISOString(),
+      price: record.price.toNumber(),
+      isPlayer: playerTeam !== undefined,
+      win: playerTeam !== undefined && match !== undefined && playerTeam.teamNumber === match.winnerTeamNumber,
+      team1: record.teams.find(team => team.teamNumber === 1)?.teamName,
+      team2: record.teams.find(team => team.teamNumber === 2)?.teamName,
+      setTeam1,
+      setTeam2
+    };
+  }
 
   static prismaToBookingQuickResDto(record: PrismaBookingQuickSummarySelect): BookingQuickResDto {
     let nPlayer = 0;

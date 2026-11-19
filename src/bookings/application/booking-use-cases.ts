@@ -13,6 +13,7 @@ import { MatchAcceptProposeUseCase } from './match.accept.propose.use-case.js';
 import { MatchRemoveProposeUseCase } from './match.remove.propose.use-case.js';
 import { GetMatchByBookingId } from './get.match.by.bookingid.use-case.js';
 import { StartBookingUseCase } from './start.boocking.use-case.js';
+import { GetCalendarBookingsUseCase } from './get.calendar.bookings.use-case.js';
 
 export const BOOKING_USE_CASES = [
     CreateBookingUseCase,
@@ -25,6 +26,7 @@ export const BOOKING_USE_CASES = [
     InviteBookingUseCase,
     RemovePlayerInBookingTeamUseCase,
     SearchBookingsUseCase,
+    GetCalendarBookingsUseCase,
     SearchBookingsManagerUseCase,
     GetMatchByBookingId,
     MatchAddProposeUseCase,
