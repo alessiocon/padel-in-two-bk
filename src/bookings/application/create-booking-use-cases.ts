@@ -2,9 +2,7 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from "@nes
 import { CLOCK_SERVICE, type IClockService } from "../../service/interface/IClockService.js";
 import { BOOKING_IREPOSITORY, type IBookingRepository } from "../infrastructure/booking-IRepository.js";
 import { CLUB_IREPOSITORY, type IClubRepository } from "../../clubs/infrastructure/club-IRepository.js";
-import { Booking, BookingStatus } from "../domain/booking.aggregate.js";
-import { BookingTeam } from "../domain/entity/booking.team.entity.js";
-import { BookingLogs } from "../domain/valueObject/booking.log.value.js";
+import { Booking, BookingJoinMode, BookingStatus, type BookingInitialPlayerInput, type BookingInitialTeamInput } from "../domain/booking.aggregate.js";
 import { BookingQuickResDto } from "../presentation/booking.dto.js";
 import {type IPlayerRepository, PLAYER_IREPOSITORY } from "../../player/infrastructure/player-IRepository.js";
 import { BookingPlayerStatus } from "../domain/entity/booking.player.entity.js";
@@ -21,23 +19,18 @@ export type CreateBookingInput = {
   courtId: string;
   startsAt: string;
   description?: string;
+  isPublic?: boolean;
+  joinMode?: BookingJoinMode;
+  minPlayerLevel?: number;
+  maxPlayerLevel?: number;
   slots?: number;
   status: BookingStatus;
   teams: CreateBookingTeamInput[];
 };
 
-export type CreateBookingTeamInput = {
-    teamName: string;
-    players: CreateBookingPlayerInput[];
-}
+export type CreateBookingTeamInput = BookingInitialTeamInput;
 
-export type CreateBookingPlayerInput = {
-      playerId?: string;
-      firstName?: string;
-      lastName?: string;
-      phone?: string;
-      username?: string;
-}
+export type CreateBookingPlayerInput = BookingInitialPlayerInput;
 
 
 @Injectable()
@@ -101,6 +94,12 @@ export class CreateBookingUseCase {
     
     await this.bookingRepository.hasOverlappingBooking(input.courtId, startAtUTC, endsAtUTC);
 
+    let allPlayerIds = input.teams.map(team => team.players.map(player => player.playerId)).flat().filter((id): id is string => id !== null && id !== undefined);
+    let isAllPlayerFree = await this.bookingRepository.isUsersFreeForBooking(allPlayerIds, startAtUTC, endsAtUTC);
+    if(!isAllPlayerFree){
+      throw new BadRequestException("Uno o alcuni giocatori hanno già una prenotazione per questo intervallo di tempo.");
+    }
+
     const pricingRules = await this.pricingRuleRepository.getAll(club.id);
     const price = club.calculateBookingPrice({
       courtId: court.id,
@@ -120,6 +119,10 @@ export class CreateBookingUseCase {
       createdById: input.createdById,
       createdByStaff: input.createdByStaff,
       description: input.description,
+      isPublic: input.isPublic,
+      joinMode: input.joinMode,
+      minPlayerLevel: input.minPlayerLevel,
+      maxPlayerLevel: input.maxPlayerLevel,
       courtSize: court.size,
       startsAt: startAtUTC,
       endsAt: endsAtUTC,
@@ -134,62 +137,7 @@ export class CreateBookingUseCase {
       courtName: court.name
     });
 
-    let logs : BookingLogs[] = [];
-
-    if (input.teams && input.teams.length > 0) {
-      input.teams.forEach((teamDto, teamIndex) => {
-        let team = BookingTeam.create({
-          bookingId: booking.id,
-          teamNumber: teamIndex + 1,
-          teamName: teamDto.teamName,
-        });
-
-        teamDto.players.forEach(playerDto => {
-          if(isClubOwner && input.username === playerDto.username){
-            throw new BadRequestException("Utilizza un profilo player per partecipare ad una partita");
-          }
-          
-          const playerInput = playerDto.playerId
-            ? { type: 'REGISTERED' as const, playerId: playerDto.playerId, userId: input.createdById }
-            : {
-                type: 'GUEST' as const,
-                firstName: playerDto.firstName ?? 'Ospite',
-                lastName: playerDto.lastName ?? '',
-                phone: playerDto.phone,
-              };
-
-          const isCreatorPlayer = playerDto.playerId === input.createdPlayerId;
-          team = team.addPlayer(playerInput, isCreatorPlayer ? BookingPlayerStatus.ACCEPTED : BookingPlayerStatus.PENDING );
-
-          logs.push(BookingLogs.playerAdded({
-            bookingId: booking.id,
-            userId: input.createdById,
-            actorUsername: input.username,
-            targetUsername: playerDto.playerId
-              ? playerDto.username ?? playerDto.playerId
-              : `${playerDto.firstName ?? 'Ospite'} ${playerDto.lastName ?? ''}`.trim(),
-            isRegistered: Boolean(playerDto.playerId),
-            createdAt: now,
-          }));
-        });
-
-        booking = booking.addTeam(team, now);
-      });
-    }
-
-    for(let index = booking.teams.length; booking.teams.length < 2; index++){
-       let team = BookingTeam.create({
-          bookingId: booking.id,
-          teamNumber: index + 1,
-          teamName: "Team "+ (index + 1),
-        });
-
-        booking = booking.addTeam(team, now);
-    }
-
-
-
-    booking = booking.addLogs(logs, now);
+    booking = booking.initializeTeams(input.teams, input.createdPlayerId, input.username, Boolean(isClubOwner), now);
 
     const savedBooking = await this.bookingRepository.create(booking);
     if(booking.status !== BookingStatus.RESERVED) {
@@ -205,6 +153,7 @@ export class CreateBookingUseCase {
         }
       }
     }
+    
     return savedBooking;
   }
 

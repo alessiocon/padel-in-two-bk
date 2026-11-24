@@ -32,16 +32,38 @@ export class BookingPlayerRespondedEvent extends BookingEvent {
   }
 }
 
-export class BookingMatchProposedEvent extends BookingEvent {}
+export class BookingMatchProposedEvent extends BookingEvent {
+  constructor(bookingId: string, actorId: string, actorUsername: string, public readonly proposeByTeamId?: string) {
+    super(bookingId, actorId, actorUsername);
+  }
+}
 
 export class BookingMatchRespondedEvent extends BookingEvent {
-  constructor(bookingId: string, actorId: string, actorUsername: string, public readonly isAccepted: boolean) {
+  constructor(bookingId: string, actorId: string, actorUsername: string, public readonly isAccepted: boolean, public readonly proposeByTeamId?: string) {
     super(bookingId, actorId, actorUsername);
   }
 }
 
 export class BookingPlayerRemovedEvent extends BookingEvent {
   constructor(bookingId: string, actorId: string, actorUsername: string, public readonly playerId: string) {
+    super(bookingId, actorId, actorUsername);
+  }
+}
+
+export class BookingPublicJoinRequestedEvent extends BookingEvent {
+  constructor(bookingId: string, actorId: string, actorUsername: string) {
+    super(bookingId, actorId, actorUsername);
+  }
+}
+
+export class BookingPublicJoinRespondedEvent extends BookingEvent {
+  constructor(
+    bookingId: string,
+    actorId: string,
+    actorUsername: string,
+    public readonly playerId: string,
+    public readonly isAccepted: boolean,
+  ) {
     super(bookingId, actorId, actorUsername);
   }
 }

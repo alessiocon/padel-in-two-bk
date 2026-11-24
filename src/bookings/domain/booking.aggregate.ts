@@ -1,7 +1,7 @@
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import { BookingPastDateError } from "./booking-errors.js";
 import { BookingTeam, type BookingTeamPlayerInput } from "./entity/booking.team.entity.js";
-import { BookingLogs as BookingLog, BookingLogs } from "./valueObject/booking.log.value.js";
+import { BookingEventType, BookingLogs as BookingLog, BookingLogs } from "./valueObject/booking.log.value.js";
 import { BookingMatch, MatchPropose, MatchPropose as MatchProposeStatus } from "./entity/booking.match.entity.js";
 import { BookingSetScoreProps } from "./valueObject/booking.score.value.js";
 import { MatchFormat } from "../../tournament/domain/tournamentMatch.entity.js";
@@ -10,6 +10,7 @@ import { PromotionType } from '../../promotions/domain/promotion-type.js';
 
 export enum BookingStatus { RESERVED = "RESERVED" ,PENDING = "PENDING" ,CONFIRMED = "CONFIRMED" ,CANCELLED = "CANCELLED", IN_PROGRESS = "IN_PROGRESS", END = "END" };
 export enum BookingCancBy { USER = "USER" ,CLUB = "CLUB" };
+export enum BookingJoinMode { OPEN = "OPEN", APPROVAL_REQUIRED = "APPROVAL_REQUIRED" }
 
 export type BookingProps = {
   readonly id: string;
@@ -18,6 +19,10 @@ export type BookingProps = {
   readonly createdById: string;
   readonly createdByStaff: boolean;
   readonly description?: string;
+  readonly isPublic?: boolean;
+  readonly joinMode?: BookingJoinMode;
+  readonly minPlayerLevel?: number | null;
+  readonly maxPlayerLevel?: number | null;
   readonly startsAt: Date;
   readonly endsAt: Date;
   readonly price: number;
@@ -42,6 +47,19 @@ export type BookingProps = {
 export type UpdateBookingProps = {
   description?: string,
   updateDate: Date
+};
+
+export type BookingInitialPlayerInput = {
+  playerId?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  username?: string;
+};
+
+export type BookingInitialTeamInput = {
+  teamName: string;
+  players: BookingInitialPlayerInput[];
 };
 
 export class Booking {
@@ -72,6 +90,10 @@ export class Booking {
       createdById: input.createdById,
       createdByStaff: input.createdByStaff,
       description: input.description,
+      isPublic: input.isPublic ?? false,
+      joinMode: input.joinMode ?? BookingJoinMode.APPROVAL_REQUIRED,
+      minPlayerLevel: input.minPlayerLevel ?? null,
+      maxPlayerLevel: input.maxPlayerLevel ?? null,
       startsAt: input.startsAt,
       endsAt: input.endsAt,
       price: input.price,
@@ -102,6 +124,10 @@ export class Booking {
   get createdById(): string {return this.props.createdById}
   get createdByStaff(): boolean {return this.props.createdByStaff}
   get description() : string|undefined {return this.props.description}
+  get isPublic(): boolean { return this.props.isPublic ?? false; }
+  get joinMode(): BookingJoinMode { return this.props.joinMode ?? BookingJoinMode.APPROVAL_REQUIRED; }
+  get minPlayerLevel(): number | null { return this.props.minPlayerLevel ?? null; }
+  get maxPlayerLevel(): number | null { return this.props.maxPlayerLevel ?? null; }
   get courtSize() : number {return this.props.courtSize}
   get startsAt(): Date { return new Date(this.props.startsAt); }
   public get teams(): ReadonlyArray<BookingTeam> { return this.props.teams; }
@@ -125,6 +151,65 @@ export class Booking {
   }
   get status(): BookingStatus { return this.props.status; }
 
+  public initializeTeams(
+    teamInputs: readonly BookingInitialTeamInput[],
+    creatorPlayerId: string | undefined,
+    creatorUsername: string,
+    creatorIsClubMember: boolean,
+    time: Date,
+  ): Booking {
+    this.validateForManagmentTeam();
+    if (this.teams.length > 0) {
+      throw new BadRequestException('Le squadre della prenotazione sono già state inizializzate.');
+    }
+
+    const logs: BookingLogs[] = [];
+    const teams = teamInputs.map((teamInput, teamIndex) => {
+      let team = BookingTeam.create({
+        bookingId: this.id,
+        teamNumber: teamIndex + 1,
+        teamName: teamInput.teamName,
+      });
+
+      for (const player of teamInput.players) {
+        if (creatorIsClubMember && creatorUsername === player.username) {
+          throw new BadRequestException('Utilizza un profilo player per partecipare ad una partita');
+        }
+
+        const playerInput: BookingTeamPlayerInput = player.playerId
+          ? { type: 'REGISTERED', playerId: player.playerId }
+          : { type: 'GUEST', firstName: player.firstName ?? 'Ospite', lastName: player.lastName ?? '', phone: player.phone };
+        const isCreatorPlayer = player.playerId === creatorPlayerId;
+        team = team.addPlayer(playerInput, isCreatorPlayer ? BookingPlayerStatus.ACCEPTED : BookingPlayerStatus.PENDING);
+
+        logs.push(BookingLogs.playerAdded({
+          bookingId: this.id,
+          userId: this.createdById,
+          actorUsername: creatorUsername,
+          targetUsername: player.playerId
+            ? player.username ?? player.playerId
+            : `${player.firstName ?? 'Ospite'} ${player.lastName ?? ''}`.trim(),
+          isRegistered: Boolean(player.playerId),
+          createdAt: time,
+        }));
+      }
+
+      return team;
+    });
+
+    while (teams.length < 2) {
+      const teamNumber = teams.length + 1;
+      teams.push(BookingTeam.create({ bookingId: this.id, teamNumber, teamName: `Team ${teamNumber}` }));
+    }
+
+    return new Booking({
+      ...this.props,
+      teams,
+      logs: [...this.logs, ...logs],
+      updatedAt: time,
+    });
+  }
+
   public addTeam(team: BookingTeam, updateAt: Date): Booking {
 
     this.validateForManagmentTeam();
@@ -134,6 +219,115 @@ export class Booking {
       teams: [...this.props.teams, team],
       updatedAt: updateAt,
     });
+  }
+
+  public joinPublicBooking(input: { teamId: string; playerId: string; userId: string; username: string; time: Date }): Booking {
+    if (!this.isPublic) throw new NotFoundException('Partita pubblica non trovata.');
+    if (![BookingStatus.PENDING, BookingStatus.RESERVED, BookingStatus.CONFIRMED].includes(this.status) || this.startsAt <= input.time) {
+      throw new BadRequestException('Le iscrizioni a questa partita sono chiuse.');
+    }
+
+    const targetTeam = this.teams.find(team => team.id === input.teamId);
+    if (!targetTeam) throw new NotFoundException('Squadra non trovata.');
+    const activeStatuses = [BookingPlayerStatus.PENDING, BookingPlayerStatus.REQUESTED, BookingPlayerStatus.ACCEPTED];
+
+    if (targetTeam.players.length >= this.courtSize) { throw new ConflictException('La squadra è al completo.') }
+    if (this.teams.some(team => team.hasPlayer(input.playerId))) {
+      throw new ConflictException('Sei già iscritto o hai già una richiesta in attesa per questa partita.');
+    }
+
+    const status = this.joinMode === BookingJoinMode.OPEN ? BookingPlayerStatus.ACCEPTED : BookingPlayerStatus.REQUESTED;
+    const teams = this.teams.map(team => {
+      let updatedTeam = team;
+      for (const player of team.players) {
+        if (player.playerId === input.playerId && !activeStatuses.includes(player.status)) {
+          updatedTeam = updatedTeam.removePlayer(player.id).team;
+        }
+      }
+      return updatedTeam.id === input.teamId
+        ? updatedTeam.addPlayer({ type: 'REGISTERED', playerId: input.playerId }, status)
+        : updatedTeam;
+    });
+    const log = BookingLogs.create({
+      bookingId: this.id,
+      userId: input.userId,
+      eventType: BookingEventType.PLAYER_JOINED,
+      message: status === BookingPlayerStatus.ACCEPTED
+        ? `${input.username} si è unito alla partita.`
+        : `${input.username} ha richiesto di partecipare alla partita.`,
+      createdAt: input.time,
+    });
+
+    return new Booking({
+      ...this.props,
+      teams,
+      logs: [log, ...this.logs],
+      updatedAt: new Date(Math.max(input.time.getTime(), this.updatedAt.getTime() + 1)),
+    });
+  }
+
+  public reviewPublicJoinRequest(input: { playerRequestId: string; creatorId: string; username: string; accepted: boolean; time: Date }): {
+    booking: Booking; teamId: string; playerId: string; status: BookingPlayerStatus;
+  } {
+    if (!this.isPublic) throw new NotFoundException('Partita pubblica non trovata.');
+    if (this.createdById !== input.creatorId) throw new ForbiddenException('Solo il creatore può gestire le richieste.');
+    if (![BookingStatus.PENDING, BookingStatus.RESERVED, BookingStatus.CONFIRMED].includes(this.status) || this.startsAt <= input.time) {
+      throw new BadRequestException('Le richieste per questa partita sono chiuse.');
+    }
+
+    const team = this.teams.find(candidate => candidate.players.some(player => player.id === input.playerRequestId && player.status === BookingPlayerStatus.REQUESTED));
+    const request = team?.players.find(player => player.id === input.playerRequestId && player.status === BookingPlayerStatus.REQUESTED);
+    if (!team || !request) throw new NotFoundException('Richiesta di partecipazione non trovata o già gestita.');
+    if (!request.playerId) throw new BadRequestException('La richiesta non è associata a un giocatore registrato.');
+
+    const updatedTeam = input.accepted ? team.acceptJoinRequest(request.id) : team.removePlayer(request.id).team;
+    const status = input.accepted ? BookingPlayerStatus.ACCEPTED : BookingPlayerStatus.REMOVED;
+    const log = BookingLogs.create({
+      bookingId: this.id,
+      userId: input.creatorId,
+      eventType: input.accepted ? BookingEventType.PLAYER_JOINED : BookingEventType.REMOVED,
+      message: `${input.username} ha ${input.accepted ? 'accettato' : 'rifiutato'} la richiesta di partecipazione di ${request.playerId}.`,
+      createdAt: input.time,
+    });
+    return {
+      booking: new Booking({
+        ...this.props,
+        teams: this.teams.map(candidate => candidate.id === team.id ? updatedTeam : candidate),
+        logs: [log, ...this.logs],
+        updatedAt: new Date(Math.max(input.time.getTime(), this.updatedAt.getTime() + 1)),
+      }),
+      teamId: team.id,
+      playerId: request.playerId,
+      status,
+    };
+  }
+
+  public withdrawPublicJoinRequest(input: { playerId: string; userId: string; username: string; time: Date }): {
+    booking: Booking; teamId: string; playerId: string; status: BookingPlayerStatus;
+  } {
+    const team = this.teams.find(candidate => candidate.players.some(player => player.playerId === input.playerId && player.status === BookingPlayerStatus.REQUESTED));
+    const request = team?.players.find(player => player.playerId === input.playerId && player.status === BookingPlayerStatus.REQUESTED);
+    if (!team || !request) throw new NotFoundException('Richiesta in attesa non trovata.');
+
+    const updatedTeam = team.removePlayer(request.id).team;
+    const log = BookingLogs.create({
+      bookingId: this.id,
+      userId: input.userId,
+      eventType: BookingEventType.PLAYER_LEFT,
+      message: `${input.username} ha ritirato la richiesta di partecipazione.`,
+      createdAt: input.time,
+    });
+    return {
+      booking: new Booking({
+        ...this.props,
+        teams: this.teams.map(candidate => candidate.id === team.id ? updatedTeam : candidate),
+        logs: [log, ...this.logs],
+        updatedAt: new Date(Math.max(input.time.getTime(), this.updatedAt.getTime() + 1)),
+      }),
+      teamId: team.id,
+      playerId: input.playerId,
+      status: BookingPlayerStatus.REMOVED,
+    };
   }
 
   public addPlayerToTeam(
@@ -229,7 +423,7 @@ export class Booking {
     });
   }
 
-  public isAcceptedBookingByUser(userId: string, playerId: string, isAccepted: boolean, updatedAt: Date): Booking {
+  public isAcceptedBookingByUser(userId: string, playerId: string, username: string, isAccepted: boolean, updatedAt: Date): Booking {
 
     this.validateForManagmentTeam();
 
@@ -245,9 +439,19 @@ export class Booking {
     const teams = [...this.props.teams];
     teams[teamIndex] = teams[teamIndex].isAcceptedByPlayer(playerId, isAccepted);
 
+     const auditLog = BookingLogs.create({
+          bookingId: this.id,
+          userId: userId,
+          eventType: BookingEventType.PLAYER_LEFT,
+          message: `${username} ha ${isAccepted ? 'accettato' : 'rifiutato'} la prenotazione.`,
+          createdAt: updatedAt,
+        });
+
+
     return new Booking({
       ...this.props,
       teams,
+      logs: [auditLog, ...this.logs],
       updatedAt,
     });
   }
@@ -536,9 +740,15 @@ export class Booking {
     if (!Number.isFinite(props.price) || props.price < 0) {
       throw new Error('Booking price must be a finite non-negative amount');
     }
-    // if (props.endsAt.getTime() - props.startsAt.getTime() !== BOOKING_DURATION_MINUTES * 60_000) {
-    //   throw new Error(`Booking duration must be exactly ${BOOKING_DURATION_MINUTES} minutes`);
-    // }
+    if (props.minPlayerLevel != null && (props.minPlayerLevel < 1 || props.minPlayerLevel > 7)) {
+      throw new BadRequestException('Il livello minimo deve essere compreso tra 1 e 7.');
+    }
+    if (props.maxPlayerLevel != null && (props.maxPlayerLevel < 1 || props.maxPlayerLevel > 7)) {
+      throw new BadRequestException('Il livello massimo deve essere compreso tra 1 e 7.');
+    }
+    if (props.minPlayerLevel != null && props.maxPlayerLevel != null && props.minPlayerLevel > props.maxPlayerLevel) {
+      throw new BadRequestException('Il livello minimo non può superare il livello massimo.');
+    }
   }
 
   private validateForManagmentTeam(): void {

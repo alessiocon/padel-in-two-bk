@@ -45,7 +45,7 @@ export class MatchAcceptProposeUseCase {
         
         const savedMatch = await this.saveBookingMatch.execute(booking, updatedBooking);
         this.eventEmitter.emit('booking.match.responded', new BookingMatchRespondedEvent(
-          input.bookingId, input.userId, input.username, input.isAccepted,
+          input.bookingId, input.userId, input.username, input.isAccepted, updatedBooking.match?.proposeByTeamId,
         ));
         return savedMatch;
     }

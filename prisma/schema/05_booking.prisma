@@ -10,6 +10,13 @@ enum BookingStatus {
   @@map("booking_status")
 }
 
+enum BookingJoinMode {
+  OPEN              @map("open")
+  APPROVAL_REQUIRED @map("approval_required")
+
+  @@map("booking_join_mode")
+}
+
 enum BookingCancBy {
   USER  @map("user")
   CLUB  @map("club")
@@ -29,6 +36,10 @@ model Booking {
   endsAt            DateTime              @map("ends_at") @db.Timestamptz
   price             Decimal               @db.Decimal(10, 2)
   status            BookingStatus         @default(RESERVED)
+  isPublic          Boolean               @default(false) @map("is_public")
+  joinMode          BookingJoinMode       @default(APPROVAL_REQUIRED) @map("join_mode")
+  minPlayerLevel    Decimal?              @map("min_player_level") @db.Decimal(3, 2)
+  maxPlayerLevel    Decimal?              @map("max_player_level") @db.Decimal(3, 2)
          
   cancBy            BookingCancBy?        @map("cancelled_by")       
   cancAt            DateTime?             @map("cancelled_at")       
@@ -75,6 +86,7 @@ enum BookingPlayerStatus {
   PENDING 
   ACCEPTED
   DECLINED
+  REQUESTED
   REMOVED 
 }
 

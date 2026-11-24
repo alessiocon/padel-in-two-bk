@@ -50,6 +50,13 @@ export class InviteBookingUseCase {
           phone: input.phone,
         };
 
+    if(playerInput.type === 'REGISTERED') {
+      let isPlayerFree = await this.bookingRepository.isUsersFreeForBooking([input.inviterId], booking.startsAt, booking.endsAt, booking.id);
+      if(!isPlayerFree) {
+        throw new NotFoundException('Il giocatore ha già una prenotazione per questo intervallo di tempo.');
+      }
+    }
+
     const playerName = input.playerId
       ? input.username?.trim() || input.playerId
       : `${input.firstName!.trim()} ${input.lastName!.trim()}`;
@@ -70,11 +77,13 @@ export class InviteBookingUseCase {
     );
 
     const savedBooking = await this.bookingRepository.update(updatedBooking);
+
     if (input.playerId && initialPlayerStatus === BookingPlayerStatus.PENDING) {
       this.eventEmitter.emit('booking.player.invited', new BookingPlayerInvitedEvent(
         input.bookingId, input.inviterId, input.inviterUsername, input.playerId,
       ));
     }
+
     return savedBooking;
   }
 }

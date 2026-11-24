@@ -76,6 +76,7 @@ export class ListClubsUseCase {
   constructor(@Inject(CLUB_IREPOSITORY) private readonly clubs: IClubRepository) {}
 
   async execute(): Promise<ClubsResDto[]> {
+    
     return await this.clubs.RO_findAll();
   }
 }

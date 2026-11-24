@@ -42,7 +42,10 @@ export class BookingTeam {
   public get players(): ReadonlyArray<BookingPlayer> { return this.props.players; }
 
   public hasPlayer(userId: string): boolean {
-    return this.props.players.some((player) => player.playerId === userId);
+    const activeStatuses: BookingPlayerStatus[] = [BookingPlayerStatus.PENDING, BookingPlayerStatus.REQUESTED, BookingPlayerStatus.ACCEPTED];
+    return this.props.players.some((player) =>
+      player.playerId === userId && activeStatuses.includes(player.status),
+    );
   }
 
   public isAcceptedByPlayer(playerId: string, isAccepted: boolean): BookingTeam {
@@ -69,7 +72,9 @@ export class BookingTeam {
 
 
   public addPlayer(input: BookingTeamPlayerInput, status: BookingPlayerStatus): BookingTeam {
-    if (this.props.players.length >= 2) {
+    const activeStatuses: BookingPlayerStatus[] = [BookingPlayerStatus.PENDING, BookingPlayerStatus.REQUESTED, BookingPlayerStatus.ACCEPTED];
+    const occupiedSlots = this.props.players.filter((player) => activeStatuses.includes(player.status)).length;
+    if (occupiedSlots >= 2) {
       throw new BadRequestException("La squadra ha già raggiunto il numero massimo di giocatori.");
     }
 
@@ -93,6 +98,15 @@ export class BookingTeam {
     return new BookingTeam({
       ...this.props,
       players: [...this.props.players, player],
+    });
+  }
+
+  public acceptJoinRequest(requestId: string): BookingTeam {
+    const player = this.props.players.find(candidate => candidate.id === requestId);
+    if (!player) throw new BadRequestException('Richiesta di partecipazione non trovata.');
+    return new BookingTeam({
+      ...this.props,
+      players: this.props.players.map(candidate => candidate.id === requestId ? player.acceptJoinRequest() : candidate),
     });
   }
 

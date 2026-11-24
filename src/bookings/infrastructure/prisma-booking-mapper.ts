@@ -5,6 +5,7 @@ import {
   BookingPlayer as PrismaPlayer,
   BookingLogs as PrismaBookingLogs,
   BookingStatus as PrismaBookingStatus,
+  BookingJoinMode as PrismaBookingJoinMode,
   Court as PrismaCourt,
   BookingCancBy as PrismaBookingCancBy,
   BookingEventType as PrismaEventType,
@@ -15,8 +16,8 @@ import {
   MatchPropose as PrismaMatchPropose,
   User as PrismaUser
 } from '@prisma/client';
-import { Booking, BookingCancBy, BookingStatus} from '../domain/booking.aggregate.js';
-import { BookingQuickResDto, BookingTeamResDto, BookingDetailResDto, BookingMatchResDto, CalendarBookingResDto } from '../presentation/booking.dto.js';
+import { Booking, BookingCancBy, BookingJoinMode, BookingStatus} from '../domain/booking.aggregate.js';
+import { BookingQuickResDto, BookingTeamResDto, BookingDetailResDto, BookingMatchResDto, CalendarBookingResDto, PublicBookingResDto } from '../presentation/booking.dto.js';
 import { BookingLogs, BookingEventType } from '../domain/valueObject/booking.log.value.js';
 import { BookingPlayer, BookingPlayerStatus, PlayerIdentity } from '../domain/entity/booking.player.entity.js';
 import { BookingTeam } from '../domain/entity/booking.team.entity.js';
@@ -60,6 +61,10 @@ export const bookingQuickSummarySelect = Prisma.validator<Prisma.BookingSelect>(
   clubId: true,
   courtId: true,
   status: true,
+  isPublic: true,
+  joinMode: true,
+  minPlayerLevel: true,
+  maxPlayerLevel: true,
   createdByStaff: true,
   description: true,
   startsAt: true,
@@ -112,6 +117,10 @@ export const bookingDetailsSelect = Prisma.validator<Prisma.BookingSelect>()({
   eligiblePromotions: true,
   courtId: true,
   status: true,
+  isPublic: true,
+  joinMode: true,
+  minPlayerLevel: true,
+  maxPlayerLevel: true,
   clubId: true,
   description: true,
   startsAt: true,
@@ -185,6 +194,34 @@ export type PrismaBookingDetailsSelect = Prisma.BookingGetPayload<{
   select: typeof bookingDetailsSelect;
 }>;
 
+export const publicBookingSelect = Prisma.validator<Prisma.BookingSelect>()({
+  id: true,
+  clubId: true,
+  status: true,
+  isPublic: true,
+  joinMode: true,
+  minPlayerLevel: true,
+  maxPlayerLevel: true,
+  startsAt: true,
+  endsAt: true,
+  price: true,
+  club: { select: { name: true, position: true } },
+  court: { select: { id: true, name: true, size: true, isIndoor: true } },
+  teams: {
+    orderBy: { teamNumber: 'asc' },
+    select: {
+      id: true,
+      teamNumber: true,
+      teamName: true,
+      players: { select: { status: true } },
+    },
+  },
+});
+
+export type PrismaPublicBookingSelect = Prisma.BookingGetPayload<{
+  select: typeof publicBookingSelect;
+}>;
+
 export const bookingMatchSelect = Prisma.validator<Prisma.BookingMatchSelect>()({
   id: true,
   bookingId: true,
@@ -248,6 +285,16 @@ export abstract class BookingMapper {
     [BookingStatus.END]: PrismaBookingStatus.END,
   };
 
+  public static readonly PRISMA_TO_DOMAIN_BOOKING_JOIN_MODE: Record<PrismaBookingJoinMode, BookingJoinMode> = {
+    [PrismaBookingJoinMode.OPEN]: BookingJoinMode.OPEN,
+    [PrismaBookingJoinMode.APPROVAL_REQUIRED]: BookingJoinMode.APPROVAL_REQUIRED,
+  };
+
+  public static readonly DOMAIN_TO_PRISMA_BOOKING_JOIN_MODE: Record<BookingJoinMode, PrismaBookingJoinMode> = {
+    [BookingJoinMode.OPEN]: PrismaBookingJoinMode.OPEN,
+    [BookingJoinMode.APPROVAL_REQUIRED]: PrismaBookingJoinMode.APPROVAL_REQUIRED,
+  };
+
     public static readonly PRISMA_TO_DOMAIN_BOOKING_CANCELEDBY: Record<
     PrismaBookingCancBy,
     BookingCancBy
@@ -287,6 +334,7 @@ export abstract class BookingMapper {
   public static readonly PRISMA_TO_DOMAIN_BOOKING_PLAYER_STATUS: Record<PrismaBookingPlayerStatus, BookingPlayerStatus> = {
     [PrismaBookingPlayerStatus.ACCEPTED]: BookingPlayerStatus.ACCEPTED,
     [PrismaBookingPlayerStatus.PENDING]:  BookingPlayerStatus.PENDING,
+    [PrismaBookingPlayerStatus.REQUESTED]: BookingPlayerStatus.REQUESTED,
     [PrismaBookingPlayerStatus.DECLINED]: BookingPlayerStatus.DECLINED,
     [PrismaBookingPlayerStatus.REMOVED]:  BookingPlayerStatus.REMOVED
   };
@@ -294,6 +342,7 @@ export abstract class BookingMapper {
   public static readonly DOMAIN_TO_PRISMA_BOOKING_PLAYER_STATUS: Record<BookingPlayerStatus, PrismaBookingPlayerStatus> = {
     [BookingPlayerStatus.ACCEPTED]: PrismaBookingPlayerStatus.ACCEPTED,
     [BookingPlayerStatus.PENDING]:  PrismaBookingPlayerStatus.PENDING,
+    [BookingPlayerStatus.REQUESTED]: PrismaBookingPlayerStatus.REQUESTED,
     [BookingPlayerStatus.DECLINED]: PrismaBookingPlayerStatus.DECLINED,
     [BookingPlayerStatus.REMOVED]:  PrismaBookingPlayerStatus.REMOVED
   };
@@ -323,6 +372,10 @@ export abstract class BookingMapper {
       createdById: raw.createdById,
       createdByStaff: raw.createdByStaff,
       description: raw.description ?? undefined,
+      isPublic: raw.isPublic,
+      joinMode: this.PRISMA_TO_DOMAIN_BOOKING_JOIN_MODE[raw.joinMode],
+      minPlayerLevel: raw.minPlayerLevel?.toNumber() ?? null,
+      maxPlayerLevel: raw.maxPlayerLevel?.toNumber() ?? null,
       startsAt: raw.startsAt,
       endsAt: raw.endsAt,
       price: raw.price.toNumber(),
@@ -470,6 +523,10 @@ export abstract class BookingMapper {
       courtId: primitives.courtId,
       createdById: primitives.createdById,
       createdByStaff: primitives.createdByStaff,
+      isPublic: primitives.isPublic,
+      joinMode: this.DOMAIN_TO_PRISMA_BOOKING_JOIN_MODE[primitives.joinMode ?? BookingJoinMode.APPROVAL_REQUIRED],
+      minPlayerLevel: primitives.minPlayerLevel == null ? null : new Prisma.Decimal(primitives.minPlayerLevel),
+      maxPlayerLevel: primitives.maxPlayerLevel == null ? null : new Prisma.Decimal(primitives.maxPlayerLevel),
       eligiblePromotions: [...domainBooking.eligiblePromotions],
       description: primitives.description ?? null,
       startsAt: primitives.startsAt,
@@ -581,6 +638,10 @@ export abstract class BookingMapper {
       courtId: primitives.courtId,
       createdById: primitives.createdById,
       description: primitives.description ?? null,
+      isPublic: primitives.isPublic ?? false,
+      joinMode: this.DOMAIN_TO_PRISMA_BOOKING_JOIN_MODE[primitives.joinMode ?? BookingJoinMode.APPROVAL_REQUIRED],
+      minPlayerLevel: primitives.minPlayerLevel == null ? null : new Prisma.Decimal(primitives.minPlayerLevel),
+      maxPlayerLevel: primitives.maxPlayerLevel == null ? null : new Prisma.Decimal(primitives.maxPlayerLevel),
 
       cancBy: primitives.cancBy ? this.DOMAIN_TO_PRISMA_BOOKING_CANCELEDBY[primitives.cancBy] : null,
       cancAt: primitives.cancAt,
@@ -655,6 +716,10 @@ export abstract class BookingMapper {
       courtId: record.courtId,
       courtName: record.court.name,
       createdByStaff: record.createdByStaff,
+      isPublic: record.isPublic,
+      joinMode: this.PRISMA_TO_DOMAIN_BOOKING_JOIN_MODE[record.joinMode],
+      minPlayerLevel: record.minPlayerLevel?.toNumber() ?? null,
+      maxPlayerLevel: record.maxPlayerLevel?.toNumber() ?? null,
       nPlayer,
       eligiblePromotions: record.eligiblePromotions.map(promotion => PromotionType[promotion]),
       isCourtIndoor: record.court.isIndoor,
@@ -664,6 +729,35 @@ export abstract class BookingMapper {
       endsAt: record.endsAt.toISOString(),
       price: record.price.toNumber(),
       createdAt: record.createdAt,
+    };
+  }
+
+  static prismaToPublicBookingDto(record: PrismaPublicBookingSelect): PublicBookingResDto {
+    const activeStatuses = new Set<PrismaBookingPlayerStatus>([
+      PrismaBookingPlayerStatus.PENDING,
+      PrismaBookingPlayerStatus.REQUESTED,
+      PrismaBookingPlayerStatus.ACCEPTED,
+    ]);
+    return {
+      id: record.id,
+      courtSize: record.court.size,
+      isCourtIndoor: record.court.isIndoor,
+      status: this.PRISMA_TO_DOMAIN_BOOKING_STATUS[record.status],
+      startsAt: record.startsAt.toISOString(),
+      price: record.price.toNumber(),
+      joinMode: this.PRISMA_TO_DOMAIN_BOOKING_JOIN_MODE[record.joinMode],
+      minPlayerLevel: record.minPlayerLevel?.toNumber() ?? null,
+      maxPlayerLevel: record.maxPlayerLevel?.toNumber() ?? null,
+      teams: record.teams.map(team => {
+        const occupiedSlots = team.players.filter(player => activeStatuses.has(player.status)).length;
+        return {
+          id: team.id,
+          teamNumber: team.teamNumber,
+          teamName: team.teamName,
+          occupiedSlots,
+          availableSlots: Math.max(0, 2 - occupiedSlots),
+        };
+      }),
     };
   }
 
@@ -683,6 +777,10 @@ export abstract class BookingMapper {
       position: record.club.position,
     
       status: this.PRISMA_TO_DOMAIN_BOOKING_STATUS[record.status],
+      isPublic: record.isPublic,
+      joinMode: this.PRISMA_TO_DOMAIN_BOOKING_JOIN_MODE[record.joinMode],
+      minPlayerLevel: record.minPlayerLevel?.toNumber() ?? null,
+      maxPlayerLevel: record.maxPlayerLevel?.toNumber() ?? null,
       description: record.description ?? '',
       startsAt: record.startsAt.toISOString(),
       endsAt: record.endsAt.toISOString(),

@@ -3,8 +3,8 @@ import { PrismaService } from '../../database/prisma.service.js';
 import { Booking, BookingStatus } from '../domain/booking.aggregate.js';
 import { BookingConflictError, BookingCourtNotFoundError } from '../domain/booking-errors.js';
 import type { BookingSearchFilter, IBookingRepository } from '../infrastructure/booking-IRepository.js';
-import { BookingMapper, bookingQuickSummarySelect, bookingSummarySelect, bookingDetailsSelect, bookingMatchSelect, calendarBookingSelect } from './prisma-booking-mapper.js';
-import { BookingQuickResDto, BookingDetailResDto, BookingMatchResDto, CalendarBookingResDto } from '../presentation/booking.dto.js';
+import { BookingMapper, bookingQuickSummarySelect, bookingSummarySelect, bookingDetailsSelect, bookingMatchSelect, calendarBookingSelect, publicBookingSelect } from './prisma-booking-mapper.js';
+import { BookingQuickResDto, BookingDetailResDto, BookingMatchResDto, CalendarBookingResDto, PublicBookingResDto } from '../presentation/booking.dto.js';
 import { Prisma } from '@prisma/client';
 import { TournamentMapper } from '../../tournament/infrastracture/prisma-tournament-mapper.js';
 import { BookingMatch } from '../domain/entity/booking.match.entity.js';
@@ -101,7 +101,7 @@ export class PrismaBookingRepository implements IBookingRepository {
     const count = await this.prisma.booking.count({
       where: {
         courtId,
-        status: { in: ['RESERVED', 'PENDING', 'CONFIRMED'] }, // Ignora CANCELLED
+        status: { notIn: ['CANCELLED','END'] }, 
         ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
         AND: [
           { startsAt: { lt: endsAt } },
@@ -110,15 +110,47 @@ export class PrismaBookingRepository implements IBookingRepository {
       },
     });
     if(count > 0){
-       throw new BadRequestException("The requested time slot is already booked.")
+       throw new BadRequestException("Il campo richiesto è già prenotato per questo intervallo di tempo.")
     }
     return ;
   }
 
-  async update(booking: Booking): Promise<BookingDetailResDto> {
+  async isUsersFreeForBooking(
+    playerId: string[],
+    startsAt: Date, 
+    endsAt: Date, 
+    excludeBookingId?: string
+  ): Promise<boolean> {
+    const count = await this.prisma.booking.count({
+      where: {
+        status: { notIn: ['CANCELLED','END'] }, 
+        ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
+        teams: { some: { players: {  some: { playerId: { in: playerId } },},},},
+        AND: [
+          { startsAt: { lt: endsAt } },
+          { endsAt: { gt: startsAt } },
+        ],
+      },
+    });
+    if(count > 0){
+       return false;
+    }
+    return true;
+  }
+
+  async update(booking: Booking, expectedUpdatedAt?: Date): Promise<BookingDetailResDto> {
     const data = BookingMapper.toPersistence(booking);
     try {
       const record = await this.prisma.$transaction(async (transaction) => {
+        if (expectedUpdatedAt) {
+          const changed = await transaction.booking.updateMany({
+            where: { id: booking.id, updatedAt: expectedUpdatedAt },
+            data: { updatedAt: booking.updatedAt },
+          });
+          if (changed.count !== 1) {
+            throw new ConflictException('La partita è stata modificata contemporaneamente. Riprova.');
+          }
+        }
         const newLogs = await this.findNewLogs(transaction, booking);
         await this.removeDeletedTeamsAndPlayers(transaction, booking);
         
@@ -128,6 +160,10 @@ export class PrismaBookingRepository implements IBookingRepository {
             startsAt: data.startsAt,
             endsAt: data.endsAt,
             status: data.status,
+            isPublic: data.isPublic,
+            joinMode: data.joinMode,
+            minPlayerLevel: data.minPlayerLevel,
+            maxPlayerLevel: data.maxPlayerLevel,
             updatedAt: data.updatedAt,
             cancBy: data.cancBy,
             cancAt: data.cancAt,
@@ -473,6 +509,21 @@ export class PrismaBookingRepository implements IBookingRepository {
     return records.map((record) => BookingMapper.prismaToBookingQuickResDto(record));
   }
 
+    async RO_SearchPublicBookings(query: BookingSearchFilter) : Promise<PublicBookingResDto[]> {
+    const records = await this.prisma.booking.findMany({
+      where: {
+        clubId: query.clubId,
+        isPublic: true,
+        status: { in: ['PENDING', 'RESERVED', 'CONFIRMED'] },
+        startsAt: { gte: query.from },
+      },
+      select: publicBookingSelect,
+      orderBy: [{ startsAt: 'asc' }, { id: 'asc' }],
+      take: 100,
+    });
+    return records.map(record => BookingMapper.prismaToPublicBookingDto(record));
+  }
+
 
 
   async RO_GetCalendarBookings(query: BookingSearchFilter): Promise<CalendarBookingResDto[]> {
@@ -505,6 +556,7 @@ export class PrismaBookingRepository implements IBookingRepository {
     const whereCondition: Prisma.BookingWhereInput = {
       id,
       OR: [
+        { isPublic: true },
         {createdById: userId },
         {club: {members: {some: { userId : userId} } } },
         {teams: { some: { players: { some: { playerId: playerId },},},},},

@@ -69,6 +69,8 @@ Availability is a read model calculated for a fixed interval from operational co
 
 Create a booking with `courtId`, `startsAt`, and an optional status: `free`, `reserved`, `searching`, or `blocked`. The duration is fixed at 60 minutes and no customer entity is required yet. Active bookings cannot overlap on the same court; overlap returns `409`.
 
+Bookings can be created as public games with `isPublic: true`, an optional `joinMode` (`OPEN` or `APPROVAL_REQUIRED`), and optional advisory `minPlayerLevel` / `maxPlayerLevel` values. Levels are recommendations only. `GET /bookings/public` lists upcoming public games, including those still awaiting club confirmation, without exposing participant contact details. Authenticated registered players choose a team with `POST /bookings/:id/join`; open games accept them immediately, while approval-required games create a `REQUESTED` seat that counts as occupied. The creator approves or rejects requests with `PATCH /bookings/:id/join-requests/:requestId` and `{"accepted":true}` or `{"accepted":false}`. A player can release a pending request with `DELETE /bookings/:id/join-request`.
+
 The real database integration test is opt-in:
 
 ```bash

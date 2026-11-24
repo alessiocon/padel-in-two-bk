@@ -76,7 +76,7 @@ export class MatchAddProposeUseCase {
 
         const savedMatch = await this.saveBookingMatch.execute(booking, updatedBooking);
         this.eventEmitter.emit('booking.match.proposed', new BookingMatchProposedEvent(
-          input.bookingId, input.userId, input.username,
+          input.bookingId, input.userId, input.username, updatedBooking.match?.proposeByTeamId,
         ));
         return savedMatch;
     }

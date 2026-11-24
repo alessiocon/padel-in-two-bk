@@ -32,19 +32,17 @@ export class IsAcceptedBookingByUserUseCase {
     let player = await this.playerRepository.findByUserId(input.userId);
     if(!player) throw new BadRequestException("Player non trovato");
 
-    booking = booking.isAcceptedBookingByUser(input.userId, player.id, input.isAccepted, now);
+    if(input.isAccepted === true){
+      let isPlayerFree = await this.bookingRepository.isUsersFreeForBooking([player.id], booking.startsAt, booking.endsAt, booking.id);
+      if(!isPlayerFree) {
+        throw new BadRequestException("hai già una prenotazione per questo intervallo di tempo.");
+      }
+    }
 
-    const auditLog = BookingLogs.create({
-      bookingId: booking.id,
-      userId: input.userId,
-      eventType: BookingEventType.PLAYER_LEFT,
-      message: `${input.username} ha ${input.isAccepted ? 'accettato' : 'rifiutato'} la prenotazione.`,
-      createdAt:now,
-    });
-
-    booking = booking.addLogs([auditLog], now);
-
+    booking = booking.isAcceptedBookingByUser(input.userId, player.id, input.username, input.isAccepted, now);
+    
     const savedBooking = await this.bookingRepository.update(booking);
+
     this.eventEmitter.emit('booking.player.responded', new BookingPlayerRespondedEvent(
       input.bookingId, input.userId, input.username, input.isAccepted,
     ));

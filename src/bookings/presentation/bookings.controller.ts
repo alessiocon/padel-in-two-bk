@@ -30,25 +30,19 @@ import {
 } from '@nestjs/swagger';
 import { BookingConflictError, BookingCourtNotFoundError, BookingNotFoundError } from '../domain/booking-errors.js';
 import { BookingStatus } from '../domain/booking.aggregate.js';
-import { BookingDetailResDto, DeleteBookingDto, RestoreBookingStatusDto, CreateBookingDto, UpdateBookingPlayerDto, InviteBookingPlayerDto, RemovePlayerInBookingTeamReqDto, BookingQuickResDto, BookingResultProposeDto, BookingIsAcceptedMatchProposeDto, BookingRemoveMatchProposeDto, BookingMatchResDto } from './booking.dto.js';
+import { BookingDetailResDto, DeleteBookingDto, RestoreBookingStatusDto, CreateBookingDto, BookingQuickResDto, PublicBookingResDto } from './booking.dto.js';
 import { Auth } from '../../auth/infrastructure/decorators/auth.decorator.js';
 import { CreateBookingUseCase } from '../application/create-booking-use-cases.js';
-import { IsAcceptedBookingByUserUseCase } from '../application/isAccepted-booking-by-user-use-cases.js';
-import { InviteBookingUseCase } from '../application/invite.booking.use-case.js';
-import { RemovePlayerInBookingTeamUseCase } from '../application/remove.player.in.booking-team.use-case.js';
 import { SearchBookingsUseCase } from '../application/search.bookings.use-case.js';
 import { CancelPrenotationUseCase } from '../application/cancel.prenotation.use-case.js';
 import { RestorePrenotationUseCase } from '../application/restore.prenotation.use-case.js';
 import { SearchBookingsManagerUseCase } from '../application/search.bookings.manager.use-case.js';
 import { GetBookingByIdUseCase } from '../application/get.booking.by-id.use-case.js';
 import { AcceptBookingUseCase } from '../application/accept.boocking.use-case.js';
-import { MatchAddProposeUseCase } from '../application/match.add.propose.use-case.js';
-import { MatchAcceptProposeUseCase } from '../application/match.accept.propose.use-case.js';
-import { MatchRemoveProposeUseCase } from '../application/match.remove.propose.use-case.js';
-import { GetMatchByBookingId} from '../application/get.match.by.bookingid.use-case.js';
 import { StartBookingUseCase } from '../application/start.boocking.use-case.js';
 import { GetCalendarBookingsUseCase } from '../application/get.calendar.bookings.use-case.js';
 import { CalendarBookingResDto, SearchBookingQueryDto } from './booking.dto.js';
+import { SearchPublicBookingsUseCase } from '../application/search.public.bookings.use-case.js';
 
 @ApiTags('bookings')
 @Controller('bookings')
@@ -63,14 +57,7 @@ export class BookingsController {
     private readonly AcceptBooking: AcceptBookingUseCase,
     private readonly StartBooking: StartBookingUseCase,
     private readonly RestorePrenotation: RestorePrenotationUseCase,
-    private readonly GetMatchByBookingId: GetMatchByBookingId,
-
-    private readonly AddMatchPropose: MatchAddProposeUseCase,
-    private readonly AcceptMatchPropose: MatchAcceptProposeUseCase,
-    private readonly MatchRemovePropose: MatchRemoveProposeUseCase,
-    private readonly isAcceptedBookingByUser: IsAcceptedBookingByUserUseCase,
-    private readonly inviteBooking: InviteBookingUseCase,
-    private readonly removePlayerInBookingTeam: RemovePlayerInBookingTeamUseCase
+    private readonly searchPublicBookings: SearchPublicBookingsUseCase,
   ) {}
 
 
@@ -78,6 +65,7 @@ export class BookingsController {
   @ApiOperation({ summary: 'search bookings for a prenotation of club' })
   @ApiOkResponse({ type: [BookingQuickResDto] })
   @ApiNotFoundResponse({ description: 'Booking not found' })
+  @ApiQuery({ name: 'clubId', required: false, type: String })
   @ApiQuery({ name: 'from', required: false, type: String })
   @ApiQuery({ name: 'to', required: false, type: String })
   @ApiQuery({ name: 'status', required: false, enum: BookingStatus, isArray: true })
@@ -99,6 +87,16 @@ export class BookingsController {
     }
   } 
 
+  @Get('public')
+  @ApiOperation({ summary: 'List upcoming public padel games' })
+  @ApiQuery({ name: 'clubId', required: false, type: String })
+  @ApiOkResponse({ type: [PublicBookingResDto] })
+  async listPublicBookings(
+    @Query('clubId') clubId?: string,
+  ): Promise<PublicBookingResDto[]> {
+
+    return this.searchPublicBookings.execute({ clubId: clubId});
+  }
 
 
   @Get("clubs/:clubId/manager")
@@ -235,84 +233,7 @@ export class BookingsController {
     }
   }
 
-  @Patch(":id/user/isAccepted")
-  @Auth()
-  @ApiOperation({ summary: 'Get bookings for user that can be accepted or declined' })
-  @ApiOkResponse({ type: [BookingDetailResDto] })
-  @ApiNotFoundResponse({ description: 'Booking not found' })
-  async findAllByUserAcceptOrDecline(
-    @Request() req: any,
-    @Body() body: UpdateBookingPlayerDto,
-    @Param('id', new ParseUUIDPipe()) bookingId: string
-  ): Promise<BookingDetailResDto> {
-    try {
-      const userId = req.user.sub;
-      return  await this.isAcceptedBookingByUser.execute({
-        bookingId,
-        userId,
-        username: req.user.username,
-        isAccepted: body.accepted
-      });
 
-    } catch (error) {
-      throw this.toHttpError(error);
-    }
-  }
-
-  @Post(":id/user/invited")
-  @Auth()
-  @ApiOperation({ summary: 'Invite or add a player to booking'})
-  @ApiOkResponse({ type: BookingDetailResDto })
-  @ApiNotFoundResponse({ description: 'Booking not found' })
-  async invitedUser(
-    @Request() req: any,
-    @Body() body: InviteBookingPlayerDto,
-    @Param('id', new ParseUUIDPipe()) bookingId: string
-  ): Promise<BookingDetailResDto> {
-    try {
-      const userId = req.user.sub;
-      return await this.inviteBooking.execute({
-        bookingId,
-        teamId: body.teamId,
-        inviterId: userId,
-        inviterUsername: req.user.username,
-        playerId: body.playerId,
-        username: body.username,
-        firstName: body.firstName,
-        lastName: body.lastName,
-        phone: body.phone,
-      });
-
-    } catch (error) {
-      throw this.toHttpError(error);
-    }
-  }
-
-
-  @Delete(":id/user/remove")
-  @Auth()
-  @ApiOperation({ summary: 'Remove a player from a booking team' })
-  @ApiOkResponse({ type: BookingDetailResDto })
-  @ApiNotFoundResponse({ description: 'Booking not found' })
-  async removeUser(
-    @Request() req: any,
-    @Body() body: RemovePlayerInBookingTeamReqDto,
-    @Param('id', new ParseUUIDPipe()) bookingId: string
-  ): Promise<BookingDetailResDto> {
-    try {
-      return await this.removePlayerInBookingTeam.execute({
-        bookingId,
-        teamId: body.teamId,
-        playerId: body.playerId,
-        playerUsername: body.username,
-        requesterId: req.user.sub,
-        requesterUsername: req.user.username,
-      });
-
-    } catch (error) {
-      throw this.toHttpError(error);
-    }
-  }
 
 
   @Get(':id')
@@ -401,98 +322,6 @@ export class BookingsController {
       input.isStaff
     );
   }
-
-  @Get(':id/match')
-  @Auth()
-  @ApiOperation({ summary: 'get Match of e booking'})
-  @ApiOkResponse({ type: BookingMatchResDto || null  })
-  @ApiNotFoundResponse({ description: 'match not found' })
-  async getMatchOfBooking(
-    @Param('id', new ParseUUIDPipe()) bookingId: string,
-    @Request() req: any,
-  ) : Promise<BookingMatchResDto | null> {
-
-    return await this.GetMatchByBookingId.execute(
-        bookingId,
-        req.user.sub,
-        req.user.playerId
-    );
-  }
-
-
-
-  @Post(':id/match/propose')
-  @Auth()
-  @ApiOperation({ summary: 'Add Propose of match'})
-  @ApiOkResponse({ type: [BookingDetailResDto] })
-  @ApiNotFoundResponse({ description: 'Booking not found' })
-  async addMatchPropose(
-    @Param('id', new ParseUUIDPipe()) bookingId: string,
-    @Request() req: any,
-    @Body() input: BookingResultProposeDto
-  ) : Promise<BookingMatchResDto> {
-
-    return await this.AddMatchPropose.execute(
-      {
-        bookingId,
-        userId: req.user.sub,
-        playerId: req.user.playerId,
-        username: req.user.username,
-        ...input
-      }
-    );
-  }
-
-  @Patch(':id/match/propose')
-  @Auth()
-  @ApiOperation({ summary: 'Set Score of match' })
-  @ApiOkResponse({ type: [BookingDetailResDto] })
-  @ApiNotFoundResponse({ description: 'Booking not found' })
-  async acceptMatchPropose(
-    @Param('id', new ParseUUIDPipe()) bookingId: string,
-    @Request() req: any,
-    @Body() input: BookingIsAcceptedMatchProposeDto
-  ) : Promise<BookingMatchResDto> {
-
-    return await this.AcceptMatchPropose.execute(
-      {
-        bookingId,
-        userId: req.user.sub,
-        playerId: req.user.playerId,
-        username: req.user.username,
-        ...input
-      }
-    );
-  }
-
-  @Delete(':id/match/propose')
-  @Auth()
-  @ApiOperation({ summary: 'Delete propose' })
-  @ApiNotFoundResponse({ description: 'Booking not found' })
-  async removeMatchPropose(
-    @Param('id', new ParseUUIDPipe()) bookingId: string,
-    @Request() req: any,
-    @Body() input: BookingRemoveMatchProposeDto
-
-  ) : Promise<any> {
-
-    await this.MatchRemovePropose.execute(
-      {
-        bookingId,
-        userId: req.user.sub,
-        playerId: req.user.playerId,
-        username: req.user.username,
-        ...input 
-      }
-    );
-
-    return {response: true}
-  }
-
-
-
-
-
 
   private toHttpError(error: unknown): Error {
     if (error instanceof ForbiddenException) return error;

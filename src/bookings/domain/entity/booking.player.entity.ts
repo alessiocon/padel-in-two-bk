@@ -1,6 +1,6 @@
 import { BadRequestException } from "@nestjs/common";
 
-export enum BookingPlayerStatus { PENDING = "PENDING", ACCEPTED= "ACCEPTED", DECLINED= "DECLINED", REMOVED = "REMOVED"}
+export enum BookingPlayerStatus { PENDING = "PENDING", REQUESTED = "REQUESTED", ACCEPTED= "ACCEPTED", DECLINED= "DECLINED", REMOVED = "REMOVED"}
 
 
 export type RegisteredPlayerIdentity = {
@@ -93,6 +93,13 @@ export class BookingPlayer {
       ...this.props,
       status: isAccepted ? BookingPlayerStatus.ACCEPTED : BookingPlayerStatus.DECLINED,
     });
+  }
+
+  public acceptJoinRequest(): BookingPlayer {
+    if (this.props.status !== BookingPlayerStatus.REQUESTED) {
+      throw new BadRequestException('La richiesta di partecipazione non è più in attesa.');
+    }
+    return new BookingPlayer({ ...this.props, status: BookingPlayerStatus.ACCEPTED });
   }
 
   public get playerId(): string | null {

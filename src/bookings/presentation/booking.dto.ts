@@ -1,12 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsDateString, IsIn, IsUUID, IsOptional, MaxLength, IsString, IsNotEmpty, IsArray, ValidateNested, ArrayMinSize, ArrayMaxSize, ArrayNotEmpty, IsBoolean, Max, Min, IsInt, IsEnum } from 'class-validator';
-import { BookingCancBy, BookingStatus } from '../domain/booking.aggregate.js';
+import { IsDateString, IsIn, IsUUID, IsOptional, MaxLength, IsString, IsNotEmpty, IsArray, ValidateNested, ArrayMinSize, ArrayMaxSize, ArrayNotEmpty, IsBoolean, Max, Min, IsInt, IsEnum, IsNumber } from 'class-validator';
+import { BookingCancBy, BookingJoinMode, BookingStatus } from '../domain/booking.aggregate.js';
 import { Transform, Type } from 'class-transformer';
 import { BookingPlayerStatus } from '../domain/entity/booking.player.entity.js';
 import { BookingEventType } from '../domain/valueObject/booking.log.value.js';
 import { MatchFormat } from '../../tournament/domain/tournamentMatch.entity.js';
 import { MatchPropose } from '../domain/entity/booking.match.entity.js';
-import { BookingMatchScore, BookingSetScoreProps } from '../domain/valueObject/booking.score.value.js';
+import { BookingSetScoreProps } from '../domain/valueObject/booking.score.value.js';
 import { PromotionType } from '../../promotions/domain/promotion-type.js';
 
 
@@ -147,6 +147,32 @@ export class CreateBookingDto {
   @IsDateString()
   startsAt!: string;
 
+  @ApiProperty({ required: false, default: false, description: 'Rende la prenotazione visibile nell’elenco delle partite pubbliche' })
+  @IsOptional()
+  @IsBoolean()
+  isPublic?: boolean;
+
+  @ApiProperty({ required: false, enum: BookingJoinMode, default: BookingJoinMode.APPROVAL_REQUIRED })
+  @IsOptional()
+  @IsEnum(BookingJoinMode)
+  joinMode?: BookingJoinMode;
+
+  @ApiProperty({ required: false, minimum: 1, maximum: 9.99, example: 2.5, description: 'Livello consigliato, non vincolante' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(1)
+  @Max(9.99)
+  minPlayerLevel?: number;
+
+  @ApiProperty({ required: false, minimum: 1, maximum: 9.99, example: 3.5, description: 'Livello consigliato, non vincolante' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(1)
+  @Max(9.99)
+  maxPlayerLevel?: number;
+
   @ApiProperty({ 
     type: Number, 
     description: 'Numero di slot orari da occupare (es. 1 slot = 30min/1h a seconda della configurazione del club)',
@@ -163,8 +189,6 @@ export class CreateBookingDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateBookingTeamDto)
-  // @ArrayMinSize(1, { message: 'La prenotazione deve includere almeno una squadra' })
-  // @ArrayMaxSize(2, { message: 'Una prenotazione di padel standard prevede al massimo 2 squadre' })
   teams!: CreateBookingTeamDto[];
 }
 
@@ -330,6 +354,10 @@ export class BookingQuickResDto{
     nPlayer: number;
 
     status: BookingStatus;
+    isPublic: boolean;
+    joinMode: BookingJoinMode;
+    minPlayerLevel: number | null;
+    maxPlayerLevel: number | null;
     description: string;
     startsAt: string;
     endsAt: string;
@@ -352,6 +380,10 @@ export class BookingDetailResDto {
 
     position: string;
     status: BookingStatus;
+    isPublic: boolean;
+    joinMode: BookingJoinMode;
+    minPlayerLevel: number | null;
+    maxPlayerLevel: number | null;
     description: string;
     startsAt: string;
     endsAt: string;
@@ -446,4 +478,43 @@ export class RestoreBookingStatusDto{
     example: false,
     required: true })
   isStaff: boolean;
+}
+
+export class PublicBookingTeamResDto {
+  id: string;
+  teamNumber: number;
+  teamName: string;
+  occupiedSlots: number;
+  availableSlots: number;
+}
+
+export class PublicBookingResDto {
+  id: string;
+  courtSize: number;
+  isCourtIndoor: boolean;
+  status: BookingStatus;
+  startsAt: string;
+  price: number;
+  joinMode: BookingJoinMode;
+  minPlayerLevel: number | null;
+  maxPlayerLevel: number | null;
+  teams: PublicBookingTeamResDto[];
+}
+
+export class JoinPublicBookingDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  teamId!: string;
+}
+
+export class ReviewPublicJoinRequestDto {
+  @ApiProperty({ type: Boolean, description: 'True per approvare, false per rifiutare la richiesta' })
+  @IsBoolean()
+  accepted!: boolean;
+}
+
+export class PublicJoinResultDto {
+  bookingId: string;
+  teamId: string;
+  status: BookingPlayerStatus;
 }

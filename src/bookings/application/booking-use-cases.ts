@@ -14,6 +14,10 @@ import { MatchRemoveProposeUseCase } from './match.remove.propose.use-case.js';
 import { GetMatchByBookingId } from './get.match.by.bookingid.use-case.js';
 import { StartBookingUseCase } from './start.boocking.use-case.js';
 import { GetCalendarBookingsUseCase } from './get.calendar.bookings.use-case.js';
+import { ReviewPublicJoinRequestUseCase } from './review.public.join.request.use-case.js';
+import { WithdrawPublicJoinRequestUseCase } from './withdraw.public.join.request.use-case.js';
+import { SearchPublicBookingsUseCase } from './search.public.bookings.use-case.js';
+import { JoinPublicBookingUseCase } from './join.public.booking.use-case.js';
 
 export const BOOKING_USE_CASES = [
     CreateBookingUseCase,
@@ -28,8 +32,12 @@ export const BOOKING_USE_CASES = [
     SearchBookingsUseCase,
     GetCalendarBookingsUseCase,
     SearchBookingsManagerUseCase,
+    SearchPublicBookingsUseCase,
     GetMatchByBookingId,
     MatchAddProposeUseCase,
     MatchAcceptProposeUseCase,
-    MatchRemoveProposeUseCase
+    MatchRemoveProposeUseCase,
+    JoinPublicBookingUseCase,
+    ReviewPublicJoinRequestUseCase,
+    WithdrawPublicJoinRequestUseCase,
   ];

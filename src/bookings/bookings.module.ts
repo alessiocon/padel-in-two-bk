@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { BookingUserController } from './presentation/controller/booking.controller.user.js';
+import { BookingJoinController } from './presentation/controller/booking.controller.join.js';
 import { BOOKING_USE_CASES } from './application/booking-use-cases.js';
 import { BOOKING_IREPOSITORY } from './infrastructure/booking-IRepository.js';
 import { PrismaBookingRepository } from './infrastructure/prisma-booking-repository.js';
@@ -14,10 +16,11 @@ import { PromotionsModule } from '../promotions/promotions.module.js';
 import { SaveBookingMatchService } from './application/save-booking-match.service.js';
 import { BOOKING_MATCH_UNIT_OF_WORK } from './application/booking-match.unit-of-work.js';
 import { PrismaBookingMatchUnitOfWork } from './infrastructure/prisma-booking-match.unit-of-work.js';
+import { BookingMatchController } from './presentation/controller/booking.controller.match.js';
 
 @Module({
   imports: [ClubsModule, PlayersModule, ClubPricingModule, PromotionsModule],
-  controllers: [BookingsController],
+  controllers: [BookingsController, BookingMatchController, BookingUserController, BookingJoinController],
   providers: [
     SaveBookingMatchService,
     { provide: BOOKING_MATCH_UNIT_OF_WORK, useClass: PrismaBookingMatchUnitOfWork },

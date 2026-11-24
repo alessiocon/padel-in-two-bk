@@ -8,13 +8,15 @@ import {
   BookingPlayerInvitedEvent,
   BookingPlayerRemovedEvent,
   BookingPlayerRespondedEvent,
+  BookingPublicJoinRequestedEvent,
+  BookingPublicJoinRespondedEvent,
   BookingStaffRespondedEvent,
 } from '../../../bookings/domain/booking-events.js';
 import { loadAppSettings } from '../../../config/appsettings.js';
 import { PrismaService } from '../../../database/prisma.service.js';
 import { EMAIL_SERVICE, type EmailService } from '../../domain/ports/email.service.port.js';
 
-type RecipientScope = 'created' | 'creator' | 'invited' | 'participants' | 'players' | 'removed';
+type RecipientScope = 'created' | 'creator' | 'invited' | 'participants' | 'opponents' | 'proposing-team' | 'removed';
 
 @Injectable()
 export class BookingListener {
@@ -48,14 +50,25 @@ export class BookingListener {
     await this.notify(event, 'Risposta a un invito', `${event.actorUsername} ha ${event.isAccepted ? 'accettato' : 'rifiutato'} l'invito alla partita.`, 'creator');
   }
 
+  @OnEvent('booking.public-join.requested', { async: true })
+  async handlePublicJoinRequested(event: BookingPublicJoinRequestedEvent): Promise<void> {
+    await this.notify(event, 'Richiesta di partecipazione', `${event.actorUsername} vuole partecipare alla tua partita pubblica.`, 'creator');
+  }
+
+  @OnEvent('booking.public-join.responded', { async: true })
+  async handlePublicJoinResponded(event: BookingPublicJoinRespondedEvent): Promise<void> {
+    const outcome = event.isAccepted ? 'accettata' : 'rifiutata';
+    await this.notify(event, 'Risposta alla richiesta di partecipazione', `La tua richiesta di partecipazione è stata ${outcome}.`, 'invited', event.playerId);
+  }
+
   @OnEvent('booking.match.proposed', { async: true })
   async handleMatchProposed(event: BookingMatchProposedEvent): Promise<void> {
-    await this.notify(event, 'Nuova proposta di risultato', `${event.actorUsername} ha proposto un risultato per la partita.`, 'players');
+    await this.notify(event, 'Nuova proposta di risultato', `${event.actorUsername} ha proposto un risultato per la partita.`, 'opponents', undefined, event.proposeByTeamId);
   }
 
   @OnEvent('booking.match.responded', { async: true })
   async handleMatchResponded(event: BookingMatchRespondedEvent): Promise<void> {
-    await this.notify(event, 'Risposta alla proposta di risultato', `${event.actorUsername} ha ${event.isAccepted ? 'accettato' : 'rifiutato'} la proposta di risultato.`, 'players');
+    await this.notify(event, 'Risposta alla proposta di risultato', `${event.actorUsername} ha ${event.isAccepted ? 'accettato' : 'rifiutato'} la proposta di risultato.`, 'proposing-team', undefined, event.proposeByTeamId);
   }
 
   @OnEvent('booking.player.removed', { async: true })
@@ -69,6 +82,7 @@ export class BookingListener {
     message: string,
     scope: RecipientScope = 'participants',
     targetPlayerId?: string,
+    proposeByTeamId?: string,
   ): Promise<void> {
     try {
       const booking = await this.prisma.booking.findUnique({
@@ -89,6 +103,7 @@ export class BookingListener {
           court: { select: { name: true } },
           teams: {
             select: {
+              id: true,
               players: {
                 where: { status: { in: ['PENDING', 'ACCEPTED'] } },
                 select: { player: { select: { user: { select: { id: true, email: true } } } } },
@@ -98,15 +113,18 @@ export class BookingListener {
         },
       });
       if (!booking) return;
+      if ((scope === 'opponents' || scope === 'proposing-team') && !booking.teams.some(team => team.id === proposeByTeamId)) return;
 
-      const recipients = scope === 'invited' || scope === 'players'
+      const recipients = scope === 'invited' || scope === 'opponents' || scope === 'proposing-team'
         ? []
         : scope === 'creator'
           ? [booking.createdBy]
           : [booking.createdBy, ...booking.club.members.map(member => member.user)];
 
-      if (scope === 'participants' || scope === 'players' || scope === 'removed') {
+      if (scope === 'participants' || scope === 'removed' || ((scope === 'opponents' || scope === 'proposing-team') && proposeByTeamId)) {
         for (const team of booking.teams) {
+          if (scope === 'opponents' && team.id === proposeByTeamId) continue;
+          if (scope === 'proposing-team' && team.id !== proposeByTeamId) continue;
           for (const participant of team.players) {
             if (participant.player) recipients.push(participant.player.user);
           }

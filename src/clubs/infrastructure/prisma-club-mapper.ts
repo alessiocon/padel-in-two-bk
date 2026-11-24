@@ -266,9 +266,6 @@ export class ClubMapper {
     };
   }
 
-  /**
-   * Mappa la proiezione Prisma nel DTO di dettaglio
-   */
   static toDetailDto(record: PrismaClubDetailSelect): ClubResDto {
     const summary = this.toSummaryDto(record);
 
@@ -297,22 +294,11 @@ export class ClubMapper {
 
       priceRoles: record.pricingRules?.map((rule) => {
         return {
-          id: rule.id,
-          clubId: rule.clubId,
-          name: rule.name,
-          scope: PrismaPricingRuleMapper.PRISMA_TO_DOMAIN_SCOPE[rule.scope],
+          ...rule,
           courtIds: rule.courtLinks.map(link => link.courtId),
-          weekdays: rule.weekdays,
-          startTime: rule.startTime,
-          endTime: rule.endTime,
-          validFrom: rule.validFrom,
-          validUntil: rule.validUntil,
+          scope: PrismaPricingRuleMapper.PRISMA_TO_DOMAIN_SCOPE[rule.scope],
           priceMode: PrismaPricingRuleMapper.PRISMA_TO_DOMAIN_PRICE_MODE[rule.priceMode],
           value: Number(rule.value),
-          priority: rule.priority,
-          isActive: rule.isActive,
-          createdAt: rule.createdAt,
-          updatedAt: rule.updatedAt
         }
       }) ?? []
     };
