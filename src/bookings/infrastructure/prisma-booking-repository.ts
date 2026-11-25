@@ -472,6 +472,32 @@ export class PrismaBookingRepository implements IBookingRepository {
 
    //TODO: QUI SPECIFICARE USERID, PlayerId e ManagerId che attualmente prende sempre userId e non va bene
   async RO_SearchBookings(query: BookingSearchFilter) : Promise<BookingQuickResDto[]> {
+    const whereCondition = this.buildBookingSearchWhere(query);
+    const records = await this.prisma.booking.findMany({
+      where: whereCondition,
+      select: bookingQuickSummarySelect,
+      orderBy: { startsAt: 'desc' },
+    });
+
+    return records.map((record) => BookingMapper.prismaToBookingQuickResDto(record));
+  }
+
+  async RO_SearchBookingsPage(query: BookingSearchFilter, take: number, skip: number): Promise<{ data: BookingQuickResDto[]; total: number }> {
+    const where = this.buildBookingSearchWhere(query);
+    const [total, records] = await this.prisma.$transaction([
+      this.prisma.booking.count({ where }),
+      this.prisma.booking.findMany({
+        where,
+        select: bookingQuickSummarySelect,
+        take,
+        skip,
+        orderBy: [{ startsAt: 'desc' }, { id: 'asc' }],
+      }),
+    ], { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+    return { total, data: records.map(record => BookingMapper.prismaToBookingQuickResDto(record)) };
+  }
+
+  private buildBookingSearchWhere(query: BookingSearchFilter): Prisma.BookingWhereInput {
 
     const orConditions: Prisma.BookingWhereInput[] = [];
 
@@ -484,7 +510,7 @@ export class PrismaBookingRepository implements IBookingRepository {
         teams: { some: {  players: { some: { playerId: query.playerId },},},},});
     }
 
-    const whereCondition: Prisma.BookingWhereInput = {
+    return {
       ...(query.clubId ? { clubId: query.clubId } : {}),
       ...(query.status?.length ? { status: { in: query.status } } : {}),
       ...(query.from || query.to
@@ -499,14 +525,6 @@ export class PrismaBookingRepository implements IBookingRepository {
       ...(query.member ? { club: { members: { some: { userId: query.createdById } } } } : {}),
     };
 
-    const records = await this.prisma.booking.findMany({
-      where: whereCondition,
-      select: bookingQuickSummarySelect,
-      take: 30,
-      orderBy: { startsAt: 'desc' },
-    });
-
-    return records.map((record) => BookingMapper.prismaToBookingQuickResDto(record));
   }
 
     async RO_SearchPublicBookings(query: BookingSearchFilter) : Promise<PublicBookingResDto[]> {

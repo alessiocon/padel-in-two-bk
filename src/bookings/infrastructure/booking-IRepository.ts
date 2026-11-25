@@ -34,6 +34,7 @@ export interface IBookingRepository {
 
   RO_FindAllByClubId(clubId: string, from?: Date, to?: Date): Promise<BookingQuickResDto[]>
   RO_SearchBookings(query: BookingSearchFilter): Promise<BookingQuickResDto[]>
+  RO_SearchBookingsPage(query: BookingSearchFilter, take: number, skip: number): Promise<{ data: BookingQuickResDto[]; total: number }>;
   RO_SearchPublicBookings(query: BookingSearchFilter): Promise<PublicBookingResDto[]>;
   RO_GetCalendarBookings(query: BookingSearchFilter): Promise<CalendarBookingResDto[]>
   RO_FindDetailsById(id: string, userId: string, playerId: string): Promise<BookingDetailResDto>

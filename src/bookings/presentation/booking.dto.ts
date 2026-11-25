@@ -203,36 +203,67 @@ export class UpdateBookingPlayerDto {
 
 
 export class SearchBookingQuery {
-   @ApiProperty({ required: false, example: '2026-11-18' })
-   @IsOptional()
-   @IsString()
-   from?: string;
-   @ApiProperty({ required: false, example: '2026-11-25' })
-   @IsOptional()
-   @IsString()
-   to?: string;
-   @ApiProperty({ required: false, format: 'uuid' })
-   @IsOptional()
-   @IsUUID()
-   clubId?: string;
-   @ApiProperty({ required: false, format: 'uuid' })
-   @IsOptional()
-   @IsUUID()
-   createdById?: string;
-   @ApiProperty({ required: false, format: 'uuid' })
-   @IsOptional()
-   @IsUUID()
-   playerId?: string;
-   @ApiProperty({ required: false, format: 'uuid' })
-   @IsOptional()
-   @IsUUID()
-   member?: string; 
-  @ApiProperty({ required: false, enum: BookingStatus, isArray: true })
-  @IsOptional()
-  @Transform(({ value }) => typeof value === 'string' ? value.split(',').map(status => status.trim()) : value)
-  @IsArray()
-  @IsEnum(BookingStatus, { each: true })
-  status?: BookingStatus[];
+    @ApiProperty({ required: false, example: '2026-11-18' })
+    @IsOptional()
+    @IsString()
+    from?: string;
+    @ApiProperty({ required: false, example: '2026-11-25' })
+    @IsOptional()
+    @IsString()
+    to?: string;
+    @ApiProperty({ required: false, format: 'uuid' })
+    @IsOptional()
+    @IsUUID()
+    clubId?: string;
+    @ApiProperty({ required: false, format: 'uuid' })
+    @IsOptional()
+    @IsUUID()
+    createdById?: string;
+    @ApiProperty({ required: false, format: 'uuid' })
+    @IsOptional()
+    @IsUUID()
+    playerId?: string;
+    @ApiProperty({ required: false, format: 'uuid' })
+    @IsOptional()
+    @IsUUID()
+    member?: string; 
+    @ApiProperty({ required: false, enum: BookingStatus, isArray: true })
+    @IsOptional()
+    @Transform(({ value }) => typeof value === 'string' ? value.split(',').map(status => status.trim()) : value)
+    @IsArray()
+    @IsEnum(BookingStatus, { each: true })
+    status?: BookingStatus[];
+
+    @ApiProperty({ required: false, minimum: 0, description: 'Il totale viene calcolato dal server' })
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(0)
+    total?: number;
+
+    @ApiProperty({ required: false, minimum: 1, maximum: 100, default: 30 })
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    @Max(100)
+    take?: number;
+
+    @ApiProperty({ required: false, minimum: 0 })
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(0)
+    @Max(2147483647)
+    skip?: number;
+
+    @ApiProperty({ required: false, minimum: 1, default: 1 })
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    @Max(2147483647)
+    page?: number;
 }
 
 export class SearchBookingQueryDto extends SearchBookingQuery {}
@@ -342,30 +373,50 @@ export class UpdateBookingDto {
 
 
 export class BookingQuickResDto{
+  @ApiProperty({ format: 'uuid' })
     id: string;
+  @ApiProperty({ format: 'uuid' })
     clubId: string;
+  @ApiProperty()
     clubName: string;
 
+  @ApiProperty({ format: 'uuid' })
     courtId: string;
+  @ApiProperty()
     courtName: string;
+  @ApiProperty()
+    courtSize: number;
+  @ApiProperty()
     isCourtIndoor: boolean;
+  @ApiProperty()
     createdByStaff: boolean;
 
+  @ApiProperty()
     nPlayer: number;
 
+  @ApiProperty({ enum: BookingStatus })
     status: BookingStatus;
+  @ApiProperty()
     isPublic: boolean;
+  @ApiProperty({ enum: BookingJoinMode })
     joinMode: BookingJoinMode;
+  @ApiProperty({ type: Number, nullable: true })
     minPlayerLevel: number | null;
+  @ApiProperty({ type: Number, nullable: true })
     maxPlayerLevel: number | null;
+  @ApiProperty()
     description: string;
+  @ApiProperty({ format: 'date-time' })
     startsAt: string;
+  @ApiProperty({ format: 'date-time' })
     endsAt: string;
+  @ApiProperty()
     price: number;
     
-    // @ApiProperty({ enum: PromotionType, isArray: true })
+  @ApiProperty({ enum: PromotionType, isArray: true })
     eligiblePromotions!: PromotionType[];
 
+  @ApiProperty({ type: String, format: 'date-time' })
     createdAt: Date;
 }
 export class BookingDetailResDto {

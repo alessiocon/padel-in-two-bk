@@ -22,11 +22,13 @@ import {
   ApiBadRequestResponse,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiExtraModels,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiQuery,
   ApiTags,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import { BookingConflictError, BookingCourtNotFoundError, BookingNotFoundError } from '../domain/booking-errors.js';
 import { BookingStatus } from '../domain/booking.aggregate.js';
@@ -43,6 +45,7 @@ import { StartBookingUseCase } from '../application/start.boocking.use-case.js';
 import { GetCalendarBookingsUseCase } from '../application/get.calendar.bookings.use-case.js';
 import { CalendarBookingResDto, SearchBookingQueryDto } from './booking.dto.js';
 import { SearchPublicBookingsUseCase } from '../application/search.public.bookings.use-case.js';
+import { SearchResponseDto } from '../../cammon/search.res.dto.js';
 
 @ApiTags('bookings')
 @Controller('bookings')
@@ -70,22 +73,19 @@ export class BookingsController {
   @ApiQuery({ name: 'to', required: false, type: String })
   @ApiQuery({ name: 'status', required: false, enum: BookingStatus, isArray: true })
   async serachBookings(
-    @Query('clubId') clubId: string,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
-    @Query('status', new ParseArrayPipe({ items: String, optional: true })) status?: BookingStatus[],
-  ): Promise<BookingQuickResDto[]> {
+    @Query(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true })) search: SearchBookingQueryDto,
+    ): Promise<BookingQuickResDto[]> {
     try {
-      return await this.searchBookings.execute({ 
-        clubId, 
-        from, 
-        to, 
-        status,
+      return await this.searchBookings.execute({
+        clubId: search.clubId,
+        from: search.from,
+        to: search.to,
+        status: search.status,
       });
     } catch (error) {
       throw this.toHttpError(error);
     }
-  } 
+  }
 
   @Get('public')
   @ApiOperation({ summary: 'List upcoming public padel games' })
@@ -102,7 +102,15 @@ export class BookingsController {
   @Get("clubs/:clubId/manager")
   @Auth()
   @ApiOperation({ summary: 'search bookings for a club manager' })
-  @ApiOkResponse({ type: [BookingQuickResDto] })
+  @ApiExtraModels(SearchResponseDto, BookingQuickResDto)
+  @ApiOkResponse({
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(SearchResponseDto) },
+        { type: 'object', required: ['data'], properties: { data: { type: 'array', items: { $ref: getSchemaPath(BookingQuickResDto) } } } },
+      ],
+    },
+  })
   @ApiNotFoundResponse({ description: 'Booking not found' })
   @ApiQuery({ name: 'clubId', required: false, type: String })
   @ApiQuery({ name: 'from', required: false, type: String })
@@ -112,19 +120,19 @@ export class BookingsController {
   async searchBookingForManager(
     @Request() req: any,
     @Param('clubId', new ParseUUIDPipe()) clubId: string,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
-    @Query('playerId') playerId?: string,
-    @Query('status', new ParseArrayPipe({ items: String, optional: true })) status?: BookingStatus[],
-  ): Promise<BookingQuickResDto[]> {
+    @Query(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true })) search: SearchBookingQueryDto,
+  ): Promise<SearchResponseDto<BookingQuickResDto>> {
     try {
       return await this.searchBookingsManager.execute({
         clubId,
-        from,
-        to,
-        playerId,
-        status,
-        member: req.user.sub
+        from: search.from,
+        to: search.to,
+        playerId: search.playerId,
+        status: search.status,
+        take: search.take,
+        skip: search.skip,
+        page: search.page,
+        member: req.user.sub,
       });
 
     } catch (error) {

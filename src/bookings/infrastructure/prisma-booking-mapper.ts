@@ -72,7 +72,7 @@ export const bookingQuickSummarySelect = Prisma.validator<Prisma.BookingSelect>(
   price: true,
   createdAt: true,
   club: { select: { name: true } },
-  court: { select: { name: true, isIndoor: true } },
+  court: { select: { name: true, isIndoor: true, size: true } },
   teams: {select: {players: { select: {status: true}}}}
 });
 
@@ -721,6 +721,7 @@ export abstract class BookingMapper {
       minPlayerLevel: record.minPlayerLevel?.toNumber() ?? null,
       maxPlayerLevel: record.maxPlayerLevel?.toNumber() ?? null,
       nPlayer,
+      courtSize: record.court.size,
       eligiblePromotions: record.eligiblePromotions.map(promotion => PromotionType[promotion]),
       isCourtIndoor: record.court.isIndoor,
       status: this.PRISMA_TO_DOMAIN_BOOKING_STATUS[record.status],
